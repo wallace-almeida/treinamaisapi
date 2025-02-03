@@ -1,0 +1,103 @@
+spring:
+  profiles:
+    active: "@spring.profile@"
+  hateoas:
+    use-hal-as-default-json-media-type: false
+  jackson:
+    time-zone: America/Sao_Paulo
+    default-property-inclusion: NON_ABSENT
+    deserialization:
+      fail-on-unknown-properties: true
+      fail-on-ignored-properties: true
+  jpa:
+    #database-platform: org.hibernate.dialect.Oracle10gDialect
+    hibernate:
+      ddl-auto: none
+  web:
+    locale: pt_BR
+    resources:
+      add-mappings: true
+  mvc:
+    throw-exception-if-no-handler-found: true
+  main:
+    banner-mode: "off"
+springdoc:
+  swagger-ui:
+    path: swagger
+    use-root-path: true
+app:
+  version: "@project.version@"
+  name: "@project.name@"
+  description: "@project.description@"
+server:
+  servlet:
+    context-path: /odonto-api
+---
+spring:
+  config:
+    activate:
+      on-profile: prd
+  datasource:
+    url:
+    driverClassName: oracle.jdbc.OracleDriver
+    username:
+    password:
+  sigpes-datasource:
+    url:
+    driverClassName:
+    username:
+    password:
+keycloak:
+  jwkSetUri:
+ambiente:
+  nmAmbiente: PRODUÇÃO
+---
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url:
+    driverClassName:
+    username:
+    password:
+keycloak:
+  #jwkSetUri:
+  #jwkSetUri:
+  jwkSetUri:
+ambiente:
+  nmAmbiente: DESENVOLVIMENTO
+---
+spring:
+  profiles:
+    active: local  # Ajuste o perfil ativo
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update  # Isso pode ser "update" ou "create"
+  datasource:
+    url: jdbc:mysql://localhost:3306/odontoapi
+    driverClassName: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 24071602
+    properties:
+      hibernate.format_sql: true  # Corrigido o formato
+keycloak:
+  #jwkSetUri:
+  #jwkSetUri:
+  jwkSetUri:
+ambiente:
+  nmAmbiente: DESENVOLVIMENTO-HML
+logging:
+  level:
+    root: info
+    org:
+      springframework:
+        kafka: error
+    apache:
+      kafka:
+        clients:
+          NetworkClient: error
+server:
+  port: 8094
