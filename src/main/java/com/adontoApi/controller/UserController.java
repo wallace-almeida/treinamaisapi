@@ -1,16 +1,20 @@
 package com.adontoApi.controller;
 
-import java.util.List;
-
 import com.adontoApi.controller.swagger.UserControllerSwagger;
 import com.adontoApi.entity.User;
 import com.adontoApi.entity.dto.SignUpRequest;
+import com.adontoApi.entity.dto.allUserDto;
 import com.adontoApi.repository.UserRepository;
 import com.adontoApi.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -33,11 +37,16 @@ public class UserController implements UserControllerSwagger {
 		return areasistemicaPage;
 	}*/
 	
-	@Override
 	@GetMapping("/allUser")
-	public List<User> findAll() {
-		List<User> listUser = repository.getListUser();
-		return listUser;
+	@Override
+	public ResponseEntity<Page<allUserDto>> findAll(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "name") String sortBy
+	) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+		Page<allUserDto> users = service.findAllUsers(pageable);
+		return ResponseEntity.ok(users);
 	}
 /*
 	@Override

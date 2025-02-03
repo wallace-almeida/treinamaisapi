@@ -3,8 +3,12 @@ package com.adontoApi.service;
 import com.adontoApi.entity.User;
 import com.adontoApi.entity.UserType;
 import com.adontoApi.entity.dto.SignUpRequest;
+import com.adontoApi.entity.dto.allUserDto;
 import com.adontoApi.exception.NegocioException;
 import com.adontoApi.repository.UserRepository;
+import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -58,6 +62,15 @@ public class UserService {
 return repository.save(user);
 
 }
+
+    public Page<allUserDto> findAllUsers(Pageable pageable) {
+        Page<User> users = repository.findAll(pageable);
+        return users.map(user -> {
+           allUserDto allUserDto = new allUserDto();
+           BeanUtils.copyProperties(user, allUserDto);
+           return allUserDto;
+        });
+    }
 	/*
 	@Transactional
 	public void update(User supintegracao) {
