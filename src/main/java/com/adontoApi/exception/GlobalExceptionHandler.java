@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
+/*
 @ControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(NegocioException.class)
@@ -21,3 +21,4 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 }
+*/

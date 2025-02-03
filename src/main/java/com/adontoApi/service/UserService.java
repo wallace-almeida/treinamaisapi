@@ -5,15 +5,18 @@ import com.adontoApi.entity.UserType;
 import com.adontoApi.entity.dto.SignUpRequest;
 import com.adontoApi.exception.NegocioException;
 import com.adontoApi.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
 
 	private final UserRepository repository;
+    private  final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repository) {
+    public UserService(UserRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
+        this.passwordEncoder = passwordEncoder;
     }
 /*
 	public User findByIdIntegracao(Long integracao) {
@@ -31,7 +34,7 @@ public class UserService {
        User user = new User();
        user.setName(signUpRequest.getName());
        user.setEmail(signUpRequest.getEmail());
-       user.setPassword(signUpRequest.getPassword());
+       user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
        user.setPhone(signUpRequest.getPhone());
        user.setCpfUser(signUpRequest.getCpfUser());
 
