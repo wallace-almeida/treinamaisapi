@@ -11,8 +11,8 @@
 	<groupId>com</groupId>
 	<artifactId>TreinaMais</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>AutoSenseApi</name>
-	<description>Api app Auto Sense</description>
+	<name>TreinaMaisApi</name>
+	<description>Api app Treina mais</description>
 	<url/>
 	<licenses>
 		<license/>

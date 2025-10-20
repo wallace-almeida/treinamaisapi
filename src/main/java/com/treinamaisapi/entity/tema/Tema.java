@@ -1,7 +1,10 @@
 package com.treinamaisapi.entity.tema;
+import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.questoes.Questao;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -16,11 +19,8 @@ public class Tema {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String nome;
+    private String nome; // Ex: "Matemática"
 
-    private String descricao;
-
-    @OneToMany(mappedBy = "tema", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Questao> questoes;
+    @OneToMany(mappedBy = "tema", cascade = CascadeType.ALL)
+    private List<Capitulo> capitulos = new ArrayList<>();
 }

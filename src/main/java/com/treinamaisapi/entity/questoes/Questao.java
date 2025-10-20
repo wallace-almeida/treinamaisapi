@@ -1,35 +1,40 @@
 package com.treinamaisapi.entity.questoes;
 
 import com.treinamaisapi.entity.enums.NivelDificuldade;
-import com.treinamaisapi.entity.tema.Tema;
+import com.treinamaisapi.entity.subCapitulo.Subcapitulo;
+
 import jakarta.persistence.*;
 import lombok.*;
 
 
-@Entity
+
 @Table(name = "QUESTOES")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Entity
 public class Questao {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String enunciado;
 
-    @Column(columnDefinition = "JSON")
-    private String alternativas; // armazenadas em formato JSON
-
-    private String respostaCorreta;
+    private String alternativaA;
+    private String alternativaB;
+    private String alternativaC;
+    private String alternativaD;
+    private String respostaCorreta; // Ex: "D"
 
     @Enumerated(EnumType.STRING)
-    private NivelDificuldade dificuldade;
+    private NivelDificuldade nivelDificuldade;
+
+    private String banca;
 
     @ManyToOne
-    @JoinColumn(name = "tema_id")
-    private Tema tema;
+    @JoinColumn(name = "subcapitulo_id")
+    private Subcapitulo subcapitulo;
 }
+
