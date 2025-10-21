@@ -3,8 +3,7 @@ package com.treinamaisapi.entity.subCapitulo;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.questoes.Questao;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +12,9 @@ import java.util.List;
 @Table(name = "sub_capitulo")
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Subcapitulo {
 
     @Id
