@@ -8,6 +8,10 @@ import lombok.Data;
 public class QuestaoResponse {
     private Long id;
     private String enunciado;
+    private String alternativaA;
+    private String alternativaB;
+    private String alternativaC;
+    private String alternativaD;
     private String respostaCorreta;
     private String banca;
     private String nivelDificuldade;

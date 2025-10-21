@@ -39,19 +39,29 @@ public class QuestaoService {
             questoes.add(questao);
         }
 
-        questaoRepository.saveAll(questoes);
+        // persiste tudo de uma vez para obter os IDs gerados
+        List<Questao> saved = questaoRepository.saveAll(questoes);
 
-        return questoes.stream().map(q -> new QuestaoResponse(
+        // mapear para QuestaoResponse com todas as propriedades (incluindo alternativas)
+        return saved.stream().map(q -> new QuestaoResponse(
                 q.getId(),
                 q.getEnunciado(),
+                q.getAlternativaA(),
+                q.getAlternativaB(),
+                q.getAlternativaC(),
+                q.getAlternativaD(),
                 q.getRespostaCorreta(),
                 q.getBanca(),
-                q.getNivelDificuldade().name(),
-                q.getSubcapitulo().getNome(),
-                q.getSubcapitulo().getCapitulo().getNome(),
-                q.getSubcapitulo().getCapitulo().getTema().getNome()
+                q.getNivelDificuldade() != null ? q.getNivelDificuldade().name() : null,
+                q.getSubcapitulo() != null ? q.getSubcapitulo().getNome() : null,
+                q.getSubcapitulo() != null && q.getSubcapitulo().getCapitulo() != null
+                        ? q.getSubcapitulo().getCapitulo().getNome() : null,
+                q.getSubcapitulo() != null && q.getSubcapitulo().getCapitulo() != null
+                        && q.getSubcapitulo().getCapitulo().getTema() != null
+                        ? q.getSubcapitulo().getCapitulo().getTema().getNome() : null
         )).toList();
     }
+
 
     public List<QuestaoResponse> listarPorFiltro(Long temaId, Long capituloId, Long subcapituloId,
                                                  String banca, String nivel) {
@@ -64,6 +74,10 @@ public class QuestaoService {
                 .map(q -> new QuestaoResponse(
                         q.getId(),
                         q.getEnunciado(),
+                        q.getAlternativaA(),
+                        q.getAlternativaB(),
+                        q.getAlternativaC(),
+                        q.getAlternativaD(),
                         q.getRespostaCorreta(),
                         q.getBanca(),
                         q.getNivelDificuldade().name(),
@@ -72,5 +86,6 @@ public class QuestaoService {
                         q.getSubcapitulo().getCapitulo().getTema().getNome()
                 )).toList();
     }
+
 }
 
