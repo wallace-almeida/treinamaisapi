@@ -16,19 +16,21 @@ public class QuestaoSimulado {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "simulado_id")
     private Simulado simulado;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "questao_id")
     private Questao questao;
 
-    private String respostaUsuario= null; // A, B, C, D
+    @Column(name = "resposta_usuario")
+    private String respostaUsuario; // A, B, C, D (pode ser null antes de responder)
 
-    @Column(nullable = true)
-    private Boolean correta = null; // true se acertou
+    @Column(name = "correta", nullable = true)
+    private Boolean correta; // null = não respondida, true/false após responder
 
-    private Double pontuacaoObtida= 0.0; // ex: 1.0 se acertou, 0.0 se errou
+    @Column(name = "pontuacao_obtida")
+    private Double pontuacaoObtida; // ex 1.0 / 0.0
 }
 

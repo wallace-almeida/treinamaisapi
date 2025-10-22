@@ -9,6 +9,9 @@ import com.treinamaisapi.common.dto.simulado.response.FeedbackQuestaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
+import com.treinamaisapi.entity.enums.StatusSimulado;
+import com.treinamaisapi.entity.enums.TipoAtividade;
+import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
@@ -16,6 +19,7 @@ import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,17 +34,19 @@ public class SimuladoService {
     private final QuestaoRepository questaoRepository;
     private final QuestaoSimuladoRepository questaoSimuladoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final HistoricoEstudoRepository historicoEstudoRepository;
 
-
-    // 1️⃣ Criar simulado automaticamente
+    @Transactional
     public SimuladoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
         NivelDificuldade nivel = null;
-        if (request.getNivelDificuldade() != null) {
+        if (request.getNivelDificuldade() != null && !request.getNivelDificuldade().isBlank()) {
             nivel = NivelDificuldade.valueOf(request.getNivelDificuldade());
         }
+
+        int quantidade = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
         List<Questao> questoes = questaoRepository.buscarPorFiltros(
                 request.getTemaId(),
@@ -48,10 +54,9 @@ public class SimuladoService {
                 request.getSubcapituloId(),
                 nivel,
                 request.getBanca(),
-                request.getQuantidadeQuestoes()
+                quantidade
         );
 
-        // Verifica se encontrou questões suficientes
         if (questoes.isEmpty()) {
             throw new RuntimeException("Não foram encontradas questões com os filtros especificados");
         }
@@ -61,6 +66,7 @@ public class SimuladoService {
                 .quantidadeQuestoes(questoes.size())
                 .tempoDuracao(request.getTempoDuracao())
                 .dataCriacao(LocalDateTime.now())
+                .status(StatusSimulado.EM_ANDAMENTO)
                 .temaId(request.getTemaId())
                 .capituloId(request.getCapituloId())
                 .subcapituloId(request.getSubcapituloId())
@@ -70,36 +76,47 @@ public class SimuladoService {
 
         simuladoRepository.save(simulado);
 
-        // CORREÇÃO: Define valores padrão para os campos que não podem ser nulos
-        List<QuestaoSimulado> questaoSimulados = questoes.stream()
+        List<QuestaoSimulado> vinculadas = questoes.stream()
                 .map(q -> QuestaoSimulado.builder()
                         .simulado(simulado)
                         .questao(q)
-                        .correta(false) // Define como false por padrão
-                        .respostaUsuario(null) // Explicitamente null
-                        .pontuacaoObtida(0.0) // Define 0 como padrão
+                        .respostaUsuario(null)
+                        .correta(null)
+                        .pontuacaoObtida(0.0)
                         .build())
                 .collect(Collectors.toList());
 
-        questaoSimuladoRepository.saveAll(questaoSimulados);
+        questaoSimuladoRepository.saveAll(vinculadas);
 
-        return SimuladoResponse.fromEntity(simulado, questaoSimulados);
+        return SimuladoResponse.fromEntity(simulado, vinculadas);
     }
 
-    // 2️⃣ Listar simulados de um usuário
+    @Transactional(readOnly = true)
+    public SimuladoResponse buscarSimuladoAtivo(Long usuarioId) {
+        Simulado simulado = simuladoRepository.findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
+                .orElseThrow(() -> new RuntimeException("Nenhum simulado em andamento encontrado"));
+        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
+        return SimuladoResponse.fromEntity(simulado, questoes);
+    }
+
+    @Transactional(readOnly = true)
     public List<SimuladoResponse> listarSimuladosPorUsuario(Long usuarioId) {
-        return simuladoRepository.findByUsuarioId(usuarioId)
-                .stream()
-                .map(s -> SimuladoResponse.fromEntity(s, s.getQuestoes()))
+        List<Simulado> sims = simuladoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuarioId);
+        return sims.stream()
+                .map(s -> SimuladoResponse.fromEntity(s, questaoSimuladoRepository.findBySimuladoId(s.getId())))
                 .collect(Collectors.toList());
     }
 
-    // 3️⃣ Enviar respostas e calcular resultado
+    @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
         Simulado simulado = simuladoRepository.findById(simuladoId)
                 .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
-        double pontuacao = 0;
+        if (!simulado.getStatus().equals(StatusSimulado.EM_ANDAMENTO)) {
+            throw new RuntimeException("Simulado já finalizado ou não está em andamento");
+        }
+
+        double totalPontuacao = 0.0;
         int acertos = 0;
 
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
@@ -107,24 +124,36 @@ public class SimuladoService {
                     .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
                     .orElseThrow(() -> new RuntimeException("Questão não encontrada no simulado"));
 
-            boolean correta = r.getRespostaUsuario().equalsIgnoreCase(qs.getQuestao().getRespostaCorreta());
+            boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
             qs.setRespostaUsuario(r.getRespostaUsuario());
             qs.setCorreta(correta);
             qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
             questaoSimuladoRepository.save(qs);
 
             if (correta) acertos++;
-            pontuacao += qs.getPontuacaoObtida();
+            totalPontuacao += qs.getPontuacaoObtida();
         }
 
-        double pontuacaoFinal = (pontuacao / request.getRespostas().size()) * 100;
+        double pontuacaoFinal = (totalPontuacao / request.getRespostas().size()) * 100.0;
         simulado.setPontuacaoFinal(pontuacaoFinal);
+        simulado.setStatus(StatusSimulado.FINALIZADO);
         simuladoRepository.save(simulado);
+
+        // criar entrada no histórico
+        HistoricoEstudo historico = HistoricoEstudo.builder()
+                .tipoAtividade(TipoAtividade.SIMULADO)
+                .pontuacaoObtida(pontuacaoFinal)
+                .acertos(acertos)
+                .usuario(simulado.getUsuario())
+                .simulado(simulado)
+                .build();
+
+        historicoEstudoRepository.save(historico);
 
         return visualizarResultado(simuladoId);
     }
 
-    // 4️⃣ Retornar resultado completo com feedback
+    @Transactional(readOnly = true)
     public ResultadoSimuladoResponse visualizarResultado(Long simuladoId) {
         Simulado simulado = simuladoRepository.findById(simuladoId)
                 .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
@@ -132,7 +161,7 @@ public class SimuladoService {
         List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simuladoId);
 
         int total = questoes.size();
-        int acertos = (int) questoes.stream().filter(QuestaoSimulado::getCorreta).count();
+        int acertos = (int) questoes.stream().filter(q -> Boolean.TRUE.equals(q.getCorreta())).count();
 
         List<FeedbackQuestaoResponse> feedbacks = questoes.stream()
                 .map(q -> FeedbackQuestaoResponse.builder()

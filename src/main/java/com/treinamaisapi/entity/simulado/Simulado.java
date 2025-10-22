@@ -1,5 +1,6 @@
 package com.treinamaisapi.entity.simulado;
 
+import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
@@ -15,27 +16,24 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Simulado {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String titulo; // opcional: "Simulado de Matemática", etc.
+    private String titulo;
 
     @ManyToOne
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
     private Integer quantidadeQuestoes;
-
     private Integer tempoDuracao; // em minutos
-
     private LocalDateTime dataCriacao;
 
-    private Double pontuacaoFinal; // calculada no resultado
+    @Enumerated(EnumType.STRING)
+    private StatusSimulado status;
 
-    @OneToMany(mappedBy = "simulado", cascade = CascadeType.ALL)
-    private List<QuestaoSimulado> questoes;
+    private Double pontuacaoFinal;
 
     // filtros usados na criação
     private Long temaId;
@@ -43,5 +41,8 @@ public class Simulado {
     private Long subcapituloId;
     private String nivelDificuldade;
     private String banca;
+
+    @OneToMany(mappedBy = "simulado", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QuestaoSimulado> questoes;
 
 }

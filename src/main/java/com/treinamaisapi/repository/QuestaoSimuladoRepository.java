@@ -1,6 +1,8 @@
 package com.treinamaisapi.repository;
 
 
+import com.treinamaisapi.entity.enums.NivelDificuldade;
+import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +12,8 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,11 +22,31 @@ public interface QuestaoSimuladoRepository extends JpaRepository<QuestaoSimulado
 
     List<QuestaoSimulado> findBySimuladoId(Long simuladoId);
 
-    @Query("SELECT qs FROM QuestaoSimulado qs WHERE qs.simulado.id = :simuladoId AND qs.questao.id = :questaoId")
-    Optional<QuestaoSimulado> findBySimuladoIdAndQuestaoId(
-            @Param("simuladoId") Long simuladoId,
-            @Param("questaoId") Long questaoId
-    );
+
+    @Query("""
+        SELECT q FROM Questao q
+        WHERE (:temaId IS NULL OR q.subcapitulo.capitulo.tema.id = :temaId)
+          AND (:capituloId IS NULL OR q.subcapitulo.capitulo.id = :capituloId)
+          AND (:subcapituloId IS NULL OR q.subcapitulo.id = :subcapituloId)
+          AND (:nivelDificuldade IS NULL OR q.nivelDificuldade = :nivelDificuldade)
+          AND (:banca IS NULL OR q.banca = :banca)
+        """)
+    List<Questao> buscarPorFiltros(Long temaId,
+                                   Long capituloId,
+                                   Long subcapituloId,
+                                   NivelDificuldade nivelDificuldade,
+                                   String banca,
+                                   Pageable pageable);
+
+    default List<Questao> buscarPorFiltros(Long temaId,
+                                           Long capituloId,
+                                           Long subcapituloId,
+                                           NivelDificuldade nivelDificuldade,
+                                           String banca,
+                                           Integer quantidade) {
+        return buscarPorFiltros(temaId, capituloId, subcapituloId, nivelDificuldade, banca,
+                PageRequest.of(0, Math.max(1, quantidade)));
+    }
 
 
 }

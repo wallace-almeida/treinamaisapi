@@ -14,7 +14,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping(path = "/api/questoes", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/api/simulado", produces = MediaType.APPLICATION_JSON_VALUE)
 public class SimuladoController implements SimuladoControllerSwagger {
 
     private final SimuladoService simuladoService;

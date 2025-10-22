@@ -21,17 +21,17 @@ public class SimuladoResponse {
     private Double pontuacaoFinal;
     private String banca;
     private String nivelDificuldade;
+    private String status;
     private List<QuestaoResumoResponse> questoes;
 
-    public static SimuladoResponse fromEntity(Simulado simulado, List<QuestaoSimulado> questaoSimulados) {
-        List<QuestaoResumoResponse> questoes = questaoSimulados.stream()
+    public static SimuladoResponse fromEntity(Simulado simulado, List<QuestaoSimulado> qsimulados) {
+        List<QuestaoResumoResponse> questoes = qsimulados.stream()
                 .map(q -> new QuestaoResumoResponse(
                         q.getQuestao().getId(),
                         q.getQuestao().getEnunciado(),
                         q.getQuestao().getNivelDificuldade().name(),
                         q.getQuestao().getBanca()
-                ))
-                .collect(Collectors.toList());
+                )).collect(Collectors.toList());
 
         return SimuladoResponse.builder()
                 .id(simulado.getId())
@@ -42,6 +42,7 @@ public class SimuladoResponse {
                 .pontuacaoFinal(simulado.getPontuacaoFinal())
                 .banca(simulado.getBanca())
                 .nivelDificuldade(simulado.getNivelDificuldade())
+                .status(simulado.getStatus() != null ? simulado.getStatus().name() : null)
                 .questoes(questoes)
                 .build();
     }

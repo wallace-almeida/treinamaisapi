@@ -1,6 +1,7 @@
 package com.treinamaisapi.entity.historico_estudo;
 
 import com.treinamaisapi.entity.enums.TipoAtividade;
+import com.treinamaisapi.entity.simulado.Simulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
@@ -33,4 +34,9 @@ public class HistoricoEstudo {
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
+
+    @ManyToOne
+    @JoinColumn(name = "simulado_id", nullable = true)
+    private Simulado simulado;
+
 }
