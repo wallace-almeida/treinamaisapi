@@ -1,11 +1,10 @@
 package com.treinamaisapi.entity.simulado;
 
-import com.treinamaisapi.entity.questoes.Questao;
-import com.treinamaisapi.entity.questoes_respondida.QuestaoRespondida;
+import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,25 +20,28 @@ public class Simulado {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String titulo;
-
-    private Double pontuacaoTotal;
-
-    @CreationTimestamp
-    private LocalDateTime dataCriacao;
+    private String titulo; // opcional: "Simulado de Matemática", etc.
 
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
 
-    @ManyToMany
-    @JoinTable(
-            name = "SIMULADO_QUESTOES",
-            joinColumns = @JoinColumn(name = "simulado_id"),
-            inverseJoinColumns = @JoinColumn(name = "questao_id")
-    )
-    private List<Questao> questoes;
+    private Integer quantidadeQuestoes;
 
-    @OneToMany(mappedBy = "simulado", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<QuestaoRespondida> questoesRespondidas;
+    private Integer tempoDuracao; // em minutos
+
+    private LocalDateTime dataCriacao;
+
+    private Double pontuacaoFinal; // calculada no resultado
+
+    @OneToMany(mappedBy = "simulado", cascade = CascadeType.ALL)
+    private List<QuestaoSimulado> questoes;
+
+    // filtros usados na criação
+    private Long temaId;
+    private Long capituloId;
+    private Long subcapituloId;
+    private String nivelDificuldade;
+    private String banca;
+
 }
