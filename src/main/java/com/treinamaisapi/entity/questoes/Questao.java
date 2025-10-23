@@ -20,6 +20,7 @@ public class Questao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "TEXT")
     private String enunciado;
 
     private String alternativaA;
