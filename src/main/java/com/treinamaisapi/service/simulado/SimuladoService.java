@@ -7,6 +7,7 @@ import com.treinamaisapi.common.dto.simulado.request.RespostaQuestaoSimulado;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.FeedbackQuestaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.enums.StatusSimulado;
@@ -92,12 +93,15 @@ public class SimuladoService {
     }
 
     @Transactional(readOnly = true)
-    public SimuladoResponse buscarSimuladoAtivo(Long usuarioId) {
+    public SimuladoExecucaoResponse buscarSimuladoAtivo(Long usuarioId) {
         Simulado simulado = simuladoRepository.findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
                 .orElseThrow(() -> new RuntimeException("Nenhum simulado em andamento encontrado"));
+
         List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
-        return SimuladoResponse.fromEntity(simulado, questoes);
+
+        return SimuladoExecucaoResponse.fromEntity(simulado, questoes);
     }
+
 
     @Transactional(readOnly = true)
     public List<SimuladoResponse> listarSimuladosPorUsuario(Long usuarioId) {
@@ -164,13 +168,23 @@ public class SimuladoService {
         int acertos = (int) questoes.stream().filter(q -> Boolean.TRUE.equals(q.getCorreta())).count();
 
         List<FeedbackQuestaoResponse> feedbacks = questoes.stream()
-                .map(q -> FeedbackQuestaoResponse.builder()
-                        .questaoId(q.getQuestao().getId())
-                        .enunciado(q.getQuestao().getEnunciado())
-                        .respostaCorreta(q.getQuestao().getRespostaCorreta())
-                        .respostaUsuario(q.getRespostaUsuario())
-                        .correta(q.getCorreta())
-                        .build())
+                .map(q -> {
+                    var questao = q.getQuestao();
+
+                    FeedbackQuestaoResponse.FeedbackQuestaoResponseBuilder fb = FeedbackQuestaoResponse.builder()
+                            .questaoId(questao.getId())
+                            .enunciado(questao.getEnunciado())
+                            .respostaCorreta(questao.getRespostaCorreta())
+                            .respostaUsuario(q.getRespostaUsuario())
+                            .correta(q.getCorreta());
+
+                    // Adiciona explicação apenas se a resposta estiver errada
+                    if (Boolean.FALSE.equals(q.getCorreta())) {
+                        fb.explicacao(questao.getExplicacao());
+                    }
+
+                    return fb.build();
+                })
                 .collect(Collectors.toList());
 
         return ResultadoSimuladoResponse.builder()

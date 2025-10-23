@@ -3,6 +3,7 @@ package com.treinamaisapi.controller.simulado;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
 import com.treinamaisapi.controller.swagger.SimuladoControllerSwagger;
 import com.treinamaisapi.service.simulado.SimuladoService;
@@ -19,33 +20,39 @@ public class SimuladoController implements SimuladoControllerSwagger {
 
     private final SimuladoService simuladoService;
 
-    // 1️⃣ Criar simulado
-    @PostMapping("/create")
+    // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
+    @PostMapping
     @Override
-    public SimuladoResponse criarSimulado(@RequestBody CriarSimuladoRequest request,
-                                          @RequestParam Long usuarioId) {
+    public SimuladoResponse criarSimulado(@RequestParam Long usuarioId,
+                                          @RequestBody CriarSimuladoRequest request) {
         return simuladoService.criarSimulado(request, usuarioId);
     }
 
-    // 2️⃣ Listar simulados
-    @GetMapping
+    @GetMapping("/usuario/{usuarioId}/ativo")
     @Override
-    public List<SimuladoResponse> listarSimulados(@RequestParam Long usuarioId) {
+    public SimuladoExecucaoResponse buscarSimuladoAtivo(@PathVariable Long usuarioId) {
+        return simuladoService.buscarSimuladoAtivo(usuarioId);
+    }
+
+    // Lista histórico / todos os simulados do usuário
+    @GetMapping("/usuario/{usuarioId}")
+    @Override
+    public List<SimuladoResponse> listarSimuladosPorUsuario(@PathVariable Long usuarioId) {
         return simuladoService.listarSimuladosPorUsuario(usuarioId);
     }
 
-    // 3️⃣ Responder simulado
-    @PostMapping("/{id}/responder")
+    // Envia respostas e finaliza
+    @PostMapping("/{simuladoId}/responder")
     @Override
-    public ResultadoSimuladoResponse responderSimulado(@PathVariable Long id,
+    public ResultadoSimuladoResponse responderSimulado(@PathVariable Long simuladoId,
                                                        @RequestBody RespostaSimuladoRequest request) {
-        return simuladoService.responderSimulado(id, request);
+        return simuladoService.responderSimulado(simuladoId, request);
     }
 
-    // 4️⃣ Ver resultado
-    @GetMapping("/{id}/resultado")
+    // Ver resultado detalhado
+    @GetMapping("/{simuladoId}/resultado")
     @Override
-    public ResultadoSimuladoResponse verResultado(@PathVariable Long id) {
-        return simuladoService.visualizarResultado(id);
+    public ResultadoSimuladoResponse verResultado(@PathVariable Long simuladoId) {
+        return simuladoService.visualizarResultado(simuladoId);
     }
 }

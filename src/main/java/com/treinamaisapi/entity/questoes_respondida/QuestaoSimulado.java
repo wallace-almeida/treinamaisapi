@@ -28,7 +28,7 @@ public class QuestaoSimulado {
     private String respostaUsuario; // A, B, C, D (pode ser null antes de responder)
 
     @Column(name = "correta", nullable = true)
-    private Boolean correta; // null = não respondida, true/false após responder
+    private Boolean correta= null; // null = não respondida, true/false após responder
 
     @Column(name = "pontuacao_obtida")
     private Double pontuacaoObtida; // ex 1.0 / 0.0

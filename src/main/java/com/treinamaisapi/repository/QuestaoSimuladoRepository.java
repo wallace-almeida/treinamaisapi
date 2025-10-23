@@ -22,6 +22,10 @@ public interface QuestaoSimuladoRepository extends JpaRepository<QuestaoSimulado
 
     List<QuestaoSimulado> findBySimuladoId(Long simuladoId);
 
+    @Query("SELECT qs FROM QuestaoSimulado qs WHERE qs.simulado.id = :simuladoId AND qs.questao.id = :questaoId")
+    Optional<QuestaoSimulado> findBySimuladoIdAndQuestaoId(@Param("simuladoId") Long simuladoId,
+                                                           @Param("questaoId") Long questaoId);
+
 
     @Query("""
         SELECT q FROM Questao q

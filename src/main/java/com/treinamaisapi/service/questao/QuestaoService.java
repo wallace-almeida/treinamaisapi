@@ -34,6 +34,7 @@ public class QuestaoService {
                     .nivelDificuldade(req.getNivelDificuldade())
                     .banca(req.getBanca())
                     .subcapitulo(subcapitulo)
+                    .explicacao(req.getExplicacao())
                     .build();
 
             questoes.add(questao);

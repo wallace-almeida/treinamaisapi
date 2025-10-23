@@ -12,4 +12,5 @@ public class FeedbackQuestaoResponse {
     private String respostaCorreta;
     private String respostaUsuario;
     private Boolean correta;
+    private String explicacao;
 }

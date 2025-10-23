@@ -27,6 +27,8 @@ public class Questao {
     private String alternativaC;
     private String alternativaD;
     private String respostaCorreta; // Ex: "D"
+    @Column(columnDefinition = "TEXT")
+    private String explicacao;
 
     @Enumerated(EnumType.STRING)
     private NivelDificuldade nivelDificuldade;

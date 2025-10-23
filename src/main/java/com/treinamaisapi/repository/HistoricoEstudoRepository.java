@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface HistoricoEstudoRepository extends JpaRepository<HistoricoEstudoRepository, Long>, JpaSpecificationExecutor<HistoricoEstudoRepository>,  PagingAndSortingRepository<HistoricoEstudoRepository, Long>{
+public interface HistoricoEstudoRepository extends JpaRepository<HistoricoEstudo, Long>, JpaSpecificationExecutor<HistoricoEstudo>,  PagingAndSortingRepository<HistoricoEstudo, Long>{
 
     List<HistoricoEstudo> findByUsuarioIdOrderByDataEstudoDesc(Long usuarioId);
 

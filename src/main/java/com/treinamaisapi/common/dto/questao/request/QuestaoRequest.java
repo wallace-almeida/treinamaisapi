@@ -28,4 +28,5 @@ public class QuestaoRequest {
     private String banca;
     @NotNull
     private Long subcapituloId;
+    private String explicacao;
 }

@@ -8,6 +8,7 @@ import com.treinamaisapi.common.dto.questao.response.TemaResponse;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -19,21 +20,25 @@ import java.util.List;
 public interface SimuladoControllerSwagger {
 
 
-    // 1️⃣ Criar simulado
-    @PostMapping("/create")
-    SimuladoResponse criarSimulado(@RequestBody CriarSimuladoRequest request,
-                                   @RequestParam Long usuarioId);
+    // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
+    @PostMapping
+    SimuladoResponse criarSimulado(@RequestParam Long usuarioId,
+                                   @RequestBody CriarSimuladoRequest request);
 
-    // 2️⃣ Listar simulados
-    @GetMapping
-    List<SimuladoResponse> listarSimulados(@RequestParam Long usuarioId);
 
-    // 3️⃣ Responder simulado
-    @PostMapping("/{id}/responder")
-    ResultadoSimuladoResponse responderSimulado(@PathVariable Long id,
+    @GetMapping("/usuario/{usuarioId}/ativo")
+    SimuladoExecucaoResponse buscarSimuladoAtivo(@PathVariable Long usuarioId);
+
+    // Lista histórico / todos os simulados do usuário
+    @GetMapping("/usuario/{usuarioId}")
+    List<SimuladoResponse> listarSimuladosPorUsuario(@PathVariable Long usuarioId);
+
+    // Envia respostas e finaliza
+    @PostMapping("/{simuladoId}/responder")
+    ResultadoSimuladoResponse responderSimulado(@PathVariable Long simuladoId,
                                                 @RequestBody RespostaSimuladoRequest request);
 
-    // 4️⃣ Ver resultado
-    @GetMapping("/{id}/resultado")
-    ResultadoSimuladoResponse verResultado(@PathVariable Long id);
+    // Ver resultado detalhado
+    @GetMapping("/{simuladoId}/resultado")
+    ResultadoSimuladoResponse verResultado(@PathVariable Long simuladoId);
 }
