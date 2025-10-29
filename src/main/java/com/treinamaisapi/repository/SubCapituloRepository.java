@@ -11,7 +11,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SubCapituloRepository extends JpaRepository<Subcapitulo, Long>, JpaSpecificationExecutor<Subcapitulo>,  PagingAndSortingRepository<Subcapitulo, Long>{
 
-
+    // ✅ IgnoreCase apenas no nome (String), acessando id da entidade Capitulo
+    boolean existsByNomeIgnoreCaseAndCapitulo_Id(String nome, Long capituloId);
 
 
 }
