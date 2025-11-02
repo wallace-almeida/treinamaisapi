@@ -5,6 +5,7 @@ import com.treinamaisapi.common.dto.questao.request.TemaLoteRequest;
 import com.treinamaisapi.common.dto.questao.request.TemaRequest;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
 import com.treinamaisapi.controller.swagger.TemaControllerSwagger;
+import com.treinamaisapi.entity.tema.Tema;
 import com.treinamaisapi.service.tema.TemaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -48,4 +49,9 @@ public class TemaController implements TemaControllerSwagger {
         return ResponseEntity.ok(temaService.listar());
     }
 
+    @GetMapping("/disponiveis/{usuarioId}")
+    @Override
+    public List<Tema> listarTemasDisponiveis(@PathVariable Long usuarioId) {
+        return temaService.listarTemasDisponiveis(usuarioId);
+    }
 }

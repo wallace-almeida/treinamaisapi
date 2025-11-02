@@ -17,6 +17,8 @@ public interface TemaRepository extends JpaRepository<Tema, Long>, JpaSpecificat
     boolean existsByNomeIgnoreCase(String nome);
     Optional<Tema> findByNomeIgnoreCase(String nome);
     List<Tema> findByNomeInIgnoreCase(List<String> nomes);
+    List<Tema> findByPacotes_Concurso_Id(Long concursoId);
+    List<Tema> findByPacotes_Id(Long pacoteId);
 
 
 }

@@ -1,13 +1,18 @@
 package com.treinamaisapi.service.tema;
 
+import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.questao.request.*;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
 import com.treinamaisapi.entity.capitulo.Capitulo;
+import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.subCapitulo.Subcapitulo;
 import com.treinamaisapi.entity.tema.Tema;
+import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.CapituloRepository;
 import com.treinamaisapi.repository.SubCapituloRepository;
 import com.treinamaisapi.repository.TemaRepository;
+import com.treinamaisapi.repository.UsuarioRepository;
+import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +29,8 @@ public class TemaService {
     private final TemaRepository temaRepository;
     private final SubCapituloRepository subCapituloRepository;
     private final CapituloRepository capituloRepository;
+    private final PacoteCompradoService pacoteCompradoService;
+    private  final UsuarioRepository usuarioRepository;
 
     public TemaResponse criar (TemaRequest request) {
         // validação simples: não criar duplicado
@@ -72,7 +79,7 @@ public class TemaService {
                     });
 
             for (CapituloLoteRequest capReq : temaReq.getCapitulos()) {
-                // ✅ Método corrigido: IgnoreCase apenas no nome e acessando tema.id
+
                 Capitulo capitulo = capituloRepository.findByNomeIgnoreCaseAndTema_Id(capReq.getNome(), tema.getId())
                         .orElseGet(() -> {
                             Capitulo novoCap = capituloRepository.save(
@@ -86,7 +93,6 @@ public class TemaService {
                         });
 
                 for (String subNome : capReq.getSubcapitulos()) {
-                    // ✅ Método corrigido: IgnoreCase apenas no nome e acessando capitulo.id
                     if (subCapituloRepository.existsByNomeIgnoreCaseAndCapitulo_Id(subNome, capitulo.getId())) {
                         ignorados.add("Subcapítulo existente: " + subNome);
                     } else {
@@ -113,4 +119,18 @@ public class TemaService {
                 t -> new TemaResponse(t.getId(), t.getNome())
         ).toList();
     }
+
+    public List<Tema> listarTemasDisponiveis(Long usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+        List<PacoteCompradoComUsuarioDTO> comprasAtivas = pacoteCompradoService.listarComprasAtivas(usuarioId);
+
+        return comprasAtivas.stream()
+                .flatMap(c -> temaRepository.findByPacotes_Id(c.getPacoteId()).stream())
+                .distinct()
+                .toList();
+    }
+
+
 }

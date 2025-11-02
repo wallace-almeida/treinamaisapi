@@ -1,5 +1,6 @@
 package com.treinamaisapi.controller.simulado;
 
+import com.treinamaisapi.common.dto.simulado.filtro.PacoteFiltroSimuladoDTO;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
@@ -55,4 +56,14 @@ public class SimuladoController implements SimuladoControllerSwagger {
     public ResultadoSimuladoResponse verResultado(@PathVariable Long simuladoId) {
         return simuladoService.visualizarResultado(simuladoId);
     }
+
+    // montar  a tela do simulado com base no pacote comprado do usuario
+
+    @GetMapping("/filtros/{usuarioId}")
+    @Override
+    public List<PacoteFiltroSimuladoDTO> listarFiltrosSimulado(@PathVariable Long usuarioId) {
+        return simuladoService.listarFiltrosPorUsuario(usuarioId);
+    }
+
+
 }

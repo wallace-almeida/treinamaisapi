@@ -2,6 +2,10 @@ package com.treinamaisapi.service.simulado;
 
 import com.treinamaisapi.common.dto.questao.request.QuestaoRequest;
 import com.treinamaisapi.common.dto.questao.response.QuestaoResponse;
+import com.treinamaisapi.common.dto.simulado.filtro.CapituloFiltroDTO;
+import com.treinamaisapi.common.dto.simulado.filtro.PacoteFiltroSimuladoDTO;
+import com.treinamaisapi.common.dto.simulado.filtro.SubcapituloFiltroDTO;
+import com.treinamaisapi.common.dto.simulado.filtro.TemaFiltroDTO;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaQuestaoSimulado;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
@@ -13,11 +17,13 @@ import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
+import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.*;
+import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,12 +43,22 @@ public class SimuladoService {
     private final QuestaoSimuladoRepository questaoSimuladoRepository;
     private final UsuarioRepository usuarioRepository;
     private final HistoricoEstudoRepository historicoEstudoRepository;
+    private final PacoteCompradoService pacoteCompradoService;
+    private final PacoteCompradoRepository pacoteCompradoRepository;
 
     @Transactional
     public SimuladoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
+        // 🔹 Valida acesso: o usuário precisa ter uma compra ativa de pacote do concurso
+        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId).stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
+
+
+        if (!possuiAcesso) {
+            throw new IllegalStateException("Usuário não possui acesso a este concurso.");
+        }
+
+        // 🔹 Define nível de dificuldade (opcional)
         NivelDificuldade nivel = null;
         if (request.getNivelDificuldade() != null && !request.getNivelDificuldade().isBlank()) {
             nivel = NivelDificuldade.valueOf(request.getNivelDificuldade());
@@ -49,53 +66,30 @@ public class SimuladoService {
 
         int quantidade = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        List<Questao> questoes = questaoRepository.buscarPorFiltros(
-                request.getTemaId(),
-                request.getCapituloId(),
-                request.getSubcapituloId(),
-                nivel,
-                request.getBanca(),
-                quantidade
-        );
+        // 🔹 Busca as questões conforme filtros
+        List<Questao> questoes = questaoRepository.buscarPorFiltros(request.getTemaId(), request.getCapituloId(), request.getSubcapituloId(), nivel, request.getBanca(), quantidade);
 
         if (questoes.isEmpty()) {
-            throw new RuntimeException("Não foram encontradas questões com os filtros especificados");
+            throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
         }
 
-        Simulado simulado = Simulado.builder()
-                .usuario(usuario)
-                .quantidadeQuestoes(questoes.size())
-                .tempoDuracao(request.getTempoDuracao())
-                .dataCriacao(LocalDateTime.now())
-                .status(StatusSimulado.EM_ANDAMENTO)
-                .temaId(request.getTemaId())
-                .capituloId(request.getCapituloId())
-                .subcapituloId(request.getSubcapituloId())
-                .nivelDificuldade(request.getNivelDificuldade())
-                .banca(request.getBanca())
-                .build();
+        // 🔹 Cria o simulado
+        Simulado simulado = Simulado.builder().usuario(usuario).quantidadeQuestoes(questoes.size()).tempoDuracao(request.getTempoDuracao()).dataCriacao(LocalDateTime.now()).status(StatusSimulado.EM_ANDAMENTO).temaId(request.getTemaId()).capituloId(request.getCapituloId()).subcapituloId(request.getSubcapituloId()).nivelDificuldade(request.getNivelDificuldade()).banca(request.getBanca()).build();
 
         simuladoRepository.save(simulado);
 
-        List<QuestaoSimulado> vinculadas = questoes.stream()
-                .map(q -> QuestaoSimulado.builder()
-                        .simulado(simulado)
-                        .questao(q)
-                        .respostaUsuario(null)
-                        .correta(null)
-                        .pontuacaoObtida(0.0)
-                        .build())
-                .collect(Collectors.toList());
+        // 🔹 Vincula as questões ao simulado
+        List<QuestaoSimulado> vinculadas = questoes.stream().map(q -> QuestaoSimulado.builder().simulado(simulado).questao(q).respostaUsuario(null).correta(null).pontuacaoObtida(0.0).build()).collect(Collectors.toList());
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
         return SimuladoResponse.fromEntity(simulado, vinculadas);
     }
 
+
     @Transactional(readOnly = true)
     public SimuladoExecucaoResponse buscarSimuladoAtivo(Long usuarioId) {
-        Simulado simulado = simuladoRepository.findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
-                .orElseThrow(() -> new RuntimeException("Nenhum simulado em andamento encontrado"));
+        Simulado simulado = simuladoRepository.findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO).orElseThrow(() -> new RuntimeException("Nenhum simulado em andamento encontrado"));
 
         List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
 
@@ -106,15 +100,12 @@ public class SimuladoService {
     @Transactional(readOnly = true)
     public List<SimuladoResponse> listarSimuladosPorUsuario(Long usuarioId) {
         List<Simulado> sims = simuladoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuarioId);
-        return sims.stream()
-                .map(s -> SimuladoResponse.fromEntity(s, questaoSimuladoRepository.findBySimuladoId(s.getId())))
-                .collect(Collectors.toList());
+        return sims.stream().map(s -> SimuladoResponse.fromEntity(s, questaoSimuladoRepository.findBySimuladoId(s.getId()))).collect(Collectors.toList());
     }
 
     @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
-        Simulado simulado = simuladoRepository.findById(simuladoId)
-                .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
+        Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
         if (!simulado.getStatus().equals(StatusSimulado.EM_ANDAMENTO)) {
             throw new RuntimeException("Simulado já finalizado ou não está em andamento");
@@ -124,9 +115,7 @@ public class SimuladoService {
         int acertos = 0;
 
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
-            QuestaoSimulado qs = questaoSimuladoRepository
-                    .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
-                    .orElseThrow(() -> new RuntimeException("Questão não encontrada no simulado"));
+            QuestaoSimulado qs = questaoSimuladoRepository.findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId()).orElseThrow(() -> new RuntimeException("Questão não encontrada no simulado"));
 
             boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
             qs.setRespostaUsuario(r.getRespostaUsuario());
@@ -144,13 +133,7 @@ public class SimuladoService {
         simuladoRepository.save(simulado);
 
         // criar entrada no histórico
-        HistoricoEstudo historico = HistoricoEstudo.builder()
-                .tipoAtividade(TipoAtividade.SIMULADO)
-                .pontuacaoObtida(pontuacaoFinal)
-                .acertos(acertos)
-                .usuario(simulado.getUsuario())
-                .simulado(simulado)
-                .build();
+        HistoricoEstudo historico = HistoricoEstudo.builder().tipoAtividade(TipoAtividade.SIMULADO).pontuacaoObtida(pontuacaoFinal).acertos(acertos).usuario(simulado.getUsuario()).simulado(simulado).build();
 
         historicoEstudoRepository.save(historico);
 
@@ -159,42 +142,49 @@ public class SimuladoService {
 
     @Transactional(readOnly = true)
     public ResultadoSimuladoResponse visualizarResultado(Long simuladoId) {
-        Simulado simulado = simuladoRepository.findById(simuladoId)
-                .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
+        Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
         List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simuladoId);
 
         int total = questoes.size();
         int acertos = (int) questoes.stream().filter(q -> Boolean.TRUE.equals(q.getCorreta())).count();
 
-        List<FeedbackQuestaoResponse> feedbacks = questoes.stream()
-                .map(q -> {
-                    var questao = q.getQuestao();
+        List<FeedbackQuestaoResponse> feedbacks = questoes.stream().map(q -> {
+            var questao = q.getQuestao();
 
-                    FeedbackQuestaoResponse.FeedbackQuestaoResponseBuilder fb = FeedbackQuestaoResponse.builder()
-                            .questaoId(questao.getId())
-                            .enunciado(questao.getEnunciado())
-                            .respostaCorreta(questao.getRespostaCorreta())
-                            .respostaUsuario(q.getRespostaUsuario())
-                            .correta(q.getCorreta());
+            FeedbackQuestaoResponse.FeedbackQuestaoResponseBuilder fb = FeedbackQuestaoResponse.builder().questaoId(questao.getId()).enunciado(questao.getEnunciado()).respostaCorreta(questao.getRespostaCorreta()).respostaUsuario(q.getRespostaUsuario()).correta(q.getCorreta());
 
-                    // Adiciona explicação apenas se a resposta estiver errada
-                    if (Boolean.FALSE.equals(q.getCorreta())) {
-                        fb.explicacao(questao.getExplicacao());
-                    }
+            // Adiciona explicação apenas se a resposta estiver errada
+            if (Boolean.FALSE.equals(q.getCorreta())) {
+                fb.explicacao(questao.getExplicacao());
+            }
 
-                    return fb.build();
-                })
-                .collect(Collectors.toList());
+            return fb.build();
+        }).collect(Collectors.toList());
 
-        return ResultadoSimuladoResponse.builder()
-                .simuladoId(simulado.getId())
-                .pontuacaoFinal(simulado.getPontuacaoFinal())
-                .totalQuestoes(total)
-                .totalAcertos(acertos)
-                .totalErros(total - acertos)
-                .feedbackQuestoes(feedbacks)
-                .build();
+        return ResultadoSimuladoResponse.builder().simuladoId(simulado.getId()).pontuacaoFinal(simulado.getPontuacaoFinal()).totalQuestoes(total).totalAcertos(acertos).totalErros(total - acertos).feedbackQuestoes(feedbacks).build();
     }
+
+
+    @Transactional(readOnly = true)
+    public List<PacoteFiltroSimuladoDTO> listarFiltrosPorUsuario(Long usuarioId) {
+
+        List<PacoteComprado> pacotesAtivos = pacoteCompradoRepository.findByUsuarioIdAndAtivoTrue(usuarioId);
+
+        return pacotesAtivos.stream().map(pc -> {
+            var pacote = pc.getPacote();
+
+            // 🔹 Monta temas, capítulos e subcapítulos
+            List<TemaFiltroDTO> temas = pacote.getTemas().stream().map(tema -> TemaFiltroDTO.builder().id(tema.getId()).nome(tema.getNome()).capitulos(tema.getCapitulos().stream().map(cap -> CapituloFiltroDTO.builder().id(cap.getId()).nome(cap.getNome()).subcapitulos(cap.getSubcapitulos().stream().map(sub -> new SubcapituloFiltroDTO(sub.getId(), sub.getNome())).toList()).build()).toList()).build()).toList();
+
+            // 🔹 Coleta bancas e níveis disponíveis (a partir das questões)
+            List<String> bancas = pacote.getTemas().stream().flatMap(t -> t.getCapitulos().stream()).flatMap(c -> c.getSubcapitulos().stream()).flatMap(s -> s.getQuestoes().stream()).map(Questao::getBanca).filter(Objects::nonNull).distinct().toList();
+
+            List<String> niveis = pacote.getTemas().stream().flatMap(t -> t.getCapitulos().stream()).flatMap(c -> c.getSubcapitulos().stream()).flatMap(s -> s.getQuestoes().stream()).map(q -> q.getNivelDificuldade().name()).distinct().toList();
+
+            return PacoteFiltroSimuladoDTO.builder().pacoteId(pacote.getId()).nomePacote(pacote.getNome()).concursoId(pacote.getConcurso().getId()).nomeConcurso(pacote.getConcurso().getNome()).temas(temas).bancasDisponiveis(bancas).niveisDisponiveis(niveis).build();
+        }).toList();
+    }
+
 }
 

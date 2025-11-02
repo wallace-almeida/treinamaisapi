@@ -5,6 +5,7 @@ package com.treinamaisapi.controller.swagger;
 
 import com.treinamaisapi.common.dto.questao.request.TemaRequest;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
+import com.treinamaisapi.common.dto.simulado.filtro.PacoteFiltroSimuladoDTO;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
@@ -25,7 +26,6 @@ public interface SimuladoControllerSwagger {
     SimuladoResponse criarSimulado(@RequestParam Long usuarioId,
                                    @RequestBody CriarSimuladoRequest request);
 
-
     @GetMapping("/usuario/{usuarioId}/ativo")
     SimuladoExecucaoResponse buscarSimuladoAtivo(@PathVariable Long usuarioId);
 
@@ -41,4 +41,7 @@ public interface SimuladoControllerSwagger {
     // Ver resultado detalhado
     @GetMapping("/{simuladoId}/resultado")
     ResultadoSimuladoResponse verResultado(@PathVariable Long simuladoId);
+
+    @GetMapping("/filtros/{usuarioId}")
+    List<PacoteFiltroSimuladoDTO> listarFiltrosSimulado(@PathVariable Long usuarioId);
 }

@@ -4,6 +4,7 @@ package com.treinamaisapi.entity.usuarios;
 import com.treinamaisapi.entity.avatar.Avatar;
 import com.treinamaisapi.entity.baralho.Baralho;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
+import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.pontuacao.Pontuacao;
 import com.treinamaisapi.entity.simulado.Simulado;
 import jakarta.persistence.*;
@@ -58,5 +59,8 @@ public class Usuario {
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
     private Pontuacao pontuacao;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PacoteComprado> pacotesComprados;
 }
 
