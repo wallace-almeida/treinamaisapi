@@ -1,7 +1,6 @@
 package com.treinamaisapi.service.simulado;
 
-import com.treinamaisapi.common.dto.questao.request.QuestaoRequest;
-import com.treinamaisapi.common.dto.questao.response.QuestaoResponse;
+
 import com.treinamaisapi.common.dto.simulado.filtro.CapituloFiltroDTO;
 import com.treinamaisapi.common.dto.simulado.filtro.PacoteFiltroSimuladoDTO;
 import com.treinamaisapi.common.dto.simulado.filtro.SubcapituloFiltroDTO;
@@ -25,13 +24,12 @@ import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.*;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,45 +44,80 @@ public class SimuladoService {
     private final PacoteCompradoService pacoteCompradoService;
     private final PacoteCompradoRepository pacoteCompradoRepository;
 
+
     @Transactional
     public SimuladoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
-        // 🔹 Valida acesso: o usuário precisa ter uma compra ativa de pacote do concurso
-        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId).stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
-
-
+        // 🔹 Verifica acesso
+        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId)
+                .stream()
+                .anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
         if (!possuiAcesso) {
             throw new IllegalStateException("Usuário não possui acesso a este concurso.");
         }
 
-        // 🔹 Define nível de dificuldade (opcional)
+        // 🔹 Define nível de dificuldade
         NivelDificuldade nivel = null;
         if (request.getNivelDificuldade() != null && !request.getNivelDificuldade().isBlank()) {
             nivel = NivelDificuldade.valueOf(request.getNivelDificuldade());
         }
 
-        int quantidade = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
+        int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        // 🔹 Busca as questões conforme filtros
-        List<Questao> questoes = questaoRepository.buscarPorFiltros(request.getTemaId(), request.getCapituloId(), request.getSubcapituloId(), nivel, request.getBanca(), quantidade);
+        // 🔹 Busca questões filtradas
+        List<Questao> questoes = questaoRepository.buscarPorFiltros(
+                request.getTemaIds(),
+                request.getCapituloIds(),
+                request.getSubcapituloIds(),
+                nivel,
+                request.getBanca(),
+                Pageable.ofSize(quantidadeTotal * 3) // buscar mais para garantir aleatoriedade
+        );
 
         if (questoes.isEmpty()) {
             throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
         }
 
-        // 🔹 Cria o simulado
-        Simulado simulado = Simulado.builder().usuario(usuario).quantidadeQuestoes(questoes.size()).tempoDuracao(request.getTempoDuracao()).dataCriacao(LocalDateTime.now()).status(StatusSimulado.EM_ANDAMENTO).temaId(request.getTemaId()).capituloId(request.getCapituloId()).subcapituloId(request.getSubcapituloId()).nivelDificuldade(request.getNivelDificuldade()).banca(request.getBanca()).build();
+        // 🔹 Embaralha e limita
+        Collections.shuffle(questoes);
+        List<Questao> questoesSelecionadas = questoes.stream()
+                .limit(quantidadeTotal)
+                .collect(Collectors.toList());
+
+        // 🔹 Cria simulado
+        Simulado simulado = Simulado.builder()
+                .usuario(usuario)
+                .quantidadeQuestoes(questoesSelecionadas.size())
+                .tempoDuracao(request.getTempoDuracao())
+                .dataCriacao(LocalDateTime.now())
+                .status(StatusSimulado.EM_ANDAMENTO)
+                .nivelDificuldade(request.getNivelDificuldade())
+                .banca(request.getBanca())
+                .temaId(request.getTemaIds().get(0))
+                .capituloId((request.getCapituloIds() != null && !request.getCapituloIds().isEmpty()) ? request.getCapituloIds().get(0) : null)
+                .subcapituloId((request.getSubcapituloIds() != null && !request.getSubcapituloIds().isEmpty()) ? request.getSubcapituloIds().get(0) : null)
+                .build();
 
         simuladoRepository.save(simulado);
 
-        // 🔹 Vincula as questões ao simulado
-        List<QuestaoSimulado> vinculadas = questoes.stream().map(q -> QuestaoSimulado.builder().simulado(simulado).questao(q).respostaUsuario(null).correta(null).pontuacaoObtida(0.0).build()).collect(Collectors.toList());
+        // 🔹 Vincula questões ao simulado
+        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
+                .map(q -> QuestaoSimulado.builder()
+                        .simulado(simulado)
+                        .questao(q)
+                        .respostaUsuario(null)
+                        .correta(null)
+                        .pontuacaoObtida(0.0)
+                        .build())
+                .collect(Collectors.toList());
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
         return SimuladoResponse.fromEntity(simulado, vinculadas);
     }
+
 
 
     @Transactional(readOnly = true)

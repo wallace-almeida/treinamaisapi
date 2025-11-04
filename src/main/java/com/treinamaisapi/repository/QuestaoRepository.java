@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,31 +20,25 @@ public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpec
 
     @Query("""
         SELECT q FROM Questao q
-        WHERE (:temaId IS NULL OR q.subcapitulo.capitulo.tema.id = :temaId)
-          AND (:capituloId IS NULL OR q.subcapitulo.capitulo.id = :capituloId)
-          AND (:subcapituloId IS NULL OR q.subcapitulo.id = :subcapituloId)
-          AND (:nivelDificuldade IS NULL OR q.nivelDificuldade = :nivelDificuldade)
+        JOIN q.subcapitulo sc
+        JOIN sc.capitulo c
+        JOIN c.tema t
+        WHERE (:temaIds IS NULL OR t.id IN (:temaIds))
+          AND (:capituloIds IS NULL OR c.id IN (:capituloIds))
+          AND (:subcapituloIds IS NULL OR sc.id IN (:subcapituloIds))
+          AND (:nivel IS NULL OR q.nivelDificuldade = :nivel)
           AND (:banca IS NULL OR q.banca = :banca)
-        ORDER BY function('RAND')
-        """)
-    List<Questao> buscarPorFiltros(Long temaId,
-                                   Long capituloId,
-                                   Long subcapituloId,
-                                   NivelDificuldade nivelDificuldade,
-                                   String banca,
-                                   Pageable pageable);
+    """)
+    List<Questao> buscarPorFiltros(
+            @Param("temaIds") List<Long> temaIds,
+            @Param("capituloIds") List<Long> capituloIds,
+            @Param("subcapituloIds") List<Long> subcapituloIds,
+            @Param("nivel") NivelDificuldade nivel,
+            @Param("banca") String banca,
+            Pageable pageable
+    );
 
-    default List<Questao> buscarPorFiltros(Long temaId,
-                                           Long capituloId,
-                                           Long subcapituloId,
-                                           NivelDificuldade nivelDificuldade,
-                                           String banca,
-                                           Integer quantidade) {
-        return buscarPorFiltros(
-                temaId, capituloId, subcapituloId, nivelDificuldade, banca,
-                PageRequest.of(0, quantidade)
-        );
-    }
+
 
 
 }
