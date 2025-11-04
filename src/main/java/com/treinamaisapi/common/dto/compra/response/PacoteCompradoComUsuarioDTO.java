@@ -1,12 +1,13 @@
 package com.treinamaisapi.common.dto.compra.response;
 
 import lombok.*;
-
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class PacoteCompradoComUsuarioDTO {
 
     // Dados do pacote
@@ -21,5 +22,11 @@ public class PacoteCompradoComUsuarioDTO {
     private String nomeUsuario;
     private String emailUsuario;
 
+    // Dados do concurso
     private Long concursoId;
+    private String nomeConcurso;
+    private LocalDate dataDaProva;
+
+    // Cálculo dinâmico
+    private long diasRestantes;
 }

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -69,22 +70,31 @@ public class PacoteCompradoService {
         // Busca todos os pacotes ativos do usuário
         List<PacoteComprado> pacotesAtivos = pacoteCompradoRepository.findByUsuarioIdAndAtivoTrue(usuarioId);
 
-        // Converte cada PacoteComprado para PacoteCompradoComUsuarioDTO
+        LocalDate hoje = LocalDate.now();
+
+        // Converte cada PacoteComprado para DTO com cálculo de dias restantes
         return pacotesAtivos.stream()
-                .map(pc -> new PacoteCompradoComUsuarioDTO(
-                        pc.getPacote().getId(),
-                        pc.getPacote().getNome(),
-                        pc.getDataCompra(),
-                        pc.getDataExpiracao(),
-                        pc.isAtivo(),
-                        pc.getUsuario().getId(),
-                        pc.getUsuario().getNome(),
-                        pc.getUsuario().getEmail(),
-                        pc.getPacote().getConcurso().getId()
-                ))
+                .map(pc -> {
+                    LocalDate dataProva = pc.getPacote().getConcurso().getDataProva(); // vem da entidade Concurso
+                    long diasRestantes = ChronoUnit.DAYS.between(hoje, dataProva);
+
+                    return PacoteCompradoComUsuarioDTO.builder()
+                            .pacoteId(pc.getPacote().getId())
+                            .nomePacote(pc.getPacote().getNome())
+                            .dataCompra(pc.getDataCompra())
+                            .dataExpiracao(pc.getDataExpiracao())
+                            .ativo(pc.isAtivo())
+                            .usuarioId(pc.getUsuario().getId())
+                            .nomeUsuario(pc.getUsuario().getNome())
+                            .emailUsuario(pc.getUsuario().getEmail())
+                            .concursoId(pc.getPacote().getConcurso().getId())
+                            .nomeConcurso(pc.getPacote().getConcurso().getNome())
+                            .dataDaProva(dataProva)
+                            .diasRestantes(diasRestantes)
+                            .build();
+                })
                 .toList();
     }
-
 
 
     @Transactional
