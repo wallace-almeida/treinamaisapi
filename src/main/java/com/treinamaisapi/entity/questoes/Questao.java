@@ -8,7 +8,11 @@ import lombok.*;
 
 
 
-@Table(name = "QUESTOES")
+@Table(name = "QUESTOES", indexes = {
+        @Index(name = "idx_questao_nivel", columnList = "nivel_dificuldade"),
+        @Index(name = "idx_questao_banca", columnList = "banca"),
+        @Index(name = "idx_questao_subcapitulo", columnList = "subcapitulo_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

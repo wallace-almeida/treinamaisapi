@@ -9,7 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "sub_capitulo")
+@Table(name = "sub_capitulo", indexes = {
+        @Index(name = "idx_subcapitulo_capitulo", columnList = "capitulo_id")
+})
 @Getter
 @Setter
 @Builder

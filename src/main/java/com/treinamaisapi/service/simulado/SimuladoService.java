@@ -66,25 +66,21 @@ public class SimuladoService {
 
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        // 🔹 Busca questões filtradas
-        List<Questao> questoes = questaoRepository.buscarPorFiltros(
+        List<Long> ids = questaoRepository.buscarIdsRandomizados(
                 request.getTemaIds(),
                 request.getCapituloIds(),
                 request.getSubcapituloIds(),
-                nivel,
+                request.getNivelDificuldade(),
                 request.getBanca(),
-                Pageable.ofSize(quantidadeTotal * 3) // buscar mais para garantir aleatoriedade
+                quantidadeTotal
         );
 
-        if (questoes.isEmpty()) {
+        if (ids.isEmpty()) {
             throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
         }
 
-        // 🔹 Embaralha e limita
-        Collections.shuffle(questoes);
-        List<Questao> questoesSelecionadas = questoes.stream()
-                .limit(quantidadeTotal)
-                .collect(Collectors.toList());
+        List<Questao> questoesSelecionadas =
+                questaoRepository.findAllById(ids);
 
         // 🔹 Cria simulado
         Simulado simulado = Simulado.builder()

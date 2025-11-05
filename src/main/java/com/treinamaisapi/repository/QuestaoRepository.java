@@ -17,28 +17,28 @@ import java.util.List;
 
 @Repository
 public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpecificationExecutor<Questao>,  PagingAndSortingRepository<Questao, Long>{
-
-    @Query("""
-        SELECT q FROM Questao q
-        JOIN q.subcapitulo sc
-        JOIN sc.capitulo c
-        JOIN c.tema t
+    @Query(value = """
+        SELECT q.id
+        FROM questoes q
+        JOIN sub_capitulo sc ON sc.id = q.subcapitulo_id
+        JOIN capitulo c ON c.id = sc.capitulo_id
+        JOIN tema t ON t.id = c.tema_id
         WHERE (:temaIds IS NULL OR t.id IN (:temaIds))
           AND (:capituloIds IS NULL OR c.id IN (:capituloIds))
           AND (:subcapituloIds IS NULL OR sc.id IN (:subcapituloIds))
-          AND (:nivel IS NULL OR q.nivelDificuldade = :nivel)
+          AND (:nivel IS NULL OR q.nivel_dificuldade = :nivel)
           AND (:banca IS NULL OR q.banca = :banca)
-    """)
-    List<Questao> buscarPorFiltros(
+        ORDER BY RAND()
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Long> buscarIdsRandomizados(
             @Param("temaIds") List<Long> temaIds,
             @Param("capituloIds") List<Long> capituloIds,
             @Param("subcapituloIds") List<Long> subcapituloIds,
-            @Param("nivel") NivelDificuldade nivel,
+            @Param("nivel") String nivel,
             @Param("banca") String banca,
-            Pageable pageable
+            @Param("limit") int limit
     );
-
-
 
 
 }

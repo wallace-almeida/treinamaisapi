@@ -13,7 +13,9 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "capitulo")
+@Table(name = "capitulo", indexes = {
+        @Index(name = "idx_capitulo_tema", columnList = "tema_id")
+})
 @Builder
 public class Capitulo {
 
