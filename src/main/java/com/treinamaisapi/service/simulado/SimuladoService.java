@@ -12,7 +12,6 @@ import com.treinamaisapi.common.dto.simulado.response.FeedbackQuestaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
-import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
@@ -21,10 +20,12 @@ import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
+
 import com.treinamaisapi.repository.*;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
+import com.treinamaisapi.spec.QuestaoSpecification;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,42 +48,39 @@ public class SimuladoService {
 
     @Transactional
     public SimuladoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
+
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
-        // 🔹 Verifica acesso
         boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId)
                 .stream()
                 .anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
+
         if (!possuiAcesso) {
             throw new IllegalStateException("Usuário não possui acesso a este concurso.");
         }
 
-        // 🔹 Define nível de dificuldade
-        NivelDificuldade nivel = null;
-        if (request.getNivelDificuldade() != null && !request.getNivelDificuldade().isBlank()) {
-            nivel = NivelDificuldade.valueOf(request.getNivelDificuldade());
-        }
-
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        List<Long> ids = questaoRepository.buscarIdsRandomizados(
-                request.getTemaIds(),
-                request.getCapituloIds(),
-                request.getSubcapituloIds(),
-                request.getNivelDificuldade(),
-                request.getBanca(),
-                quantidadeTotal
-        );
+        // monta Specification usando o CriarSimuladoRequest
+        Specification<Questao> spec = QuestaoSpecification.filtrar(request);
 
-        if (ids.isEmpty()) {
+        // busca as questões (pode paginar se preferir)
+        List<Questao> questoes = questaoRepository.findAll(spec);
+
+        if (questoes.isEmpty()) {
             throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
         }
 
-        List<Questao> questoesSelecionadas =
-                questaoRepository.findAllById(ids);
+        Collections.shuffle(questoes);
 
-        // 🔹 Cria simulado
+        List<Questao> questoesSelecionadas =
+                questoes.stream()
+                        .limit(quantidadeTotal)
+                        .toList();
+
+
+        // cria simulado (uso de getters para acessar listas)
         Simulado simulado = Simulado.builder()
                 .usuario(usuario)
                 .quantidadeQuestoes(questoesSelecionadas.size())
@@ -91,20 +89,17 @@ public class SimuladoService {
                 .status(StatusSimulado.EM_ANDAMENTO)
                 .nivelDificuldade(request.getNivelDificuldade())
                 .banca(request.getBanca())
-                .temaId(request.getTemaIds().get(0))
-                .capituloId((request.getCapituloIds() != null && !request.getCapituloIds().isEmpty()) ? request.getCapituloIds().get(0) : null)
-                .subcapituloId((request.getSubcapituloIds() != null && !request.getSubcapituloIds().isEmpty()) ? request.getSubcapituloIds().get(0) : null)
+                .temaId(firstOrNull(request.getTemaIds()))
+                .capituloId(firstOrNull(request.getCapituloIds()))
+                .subcapituloId(firstOrNull(request.getSubcapituloIds()))
                 .build();
 
         simuladoRepository.save(simulado);
 
-        // 🔹 Vincula questões ao simulado
         List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
                 .map(q -> QuestaoSimulado.builder()
                         .simulado(simulado)
                         .questao(q)
-                        .respostaUsuario(null)
-                        .correta(null)
                         .pontuacaoObtida(0.0)
                         .build())
                 .collect(Collectors.toList());
@@ -113,6 +108,11 @@ public class SimuladoService {
 
         return SimuladoResponse.fromEntity(simulado, vinculadas);
     }
+
+    private Long firstOrNull(List<Long> list) {
+        return (list != null && !list.isEmpty()) ? list.get(0) : null;
+    }
+
 
 
 

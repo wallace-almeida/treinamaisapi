@@ -10,6 +10,7 @@ import com.treinamaisapi.controller.swagger.SimuladoControllerSwagger;
 import com.treinamaisapi.service.simulado.SimuladoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,12 +23,17 @@ public class SimuladoController implements SimuladoControllerSwagger {
     private final SimuladoService simuladoService;
 
     // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
-    @PostMapping
+    @PostMapping("/create")
     @Override
-    public SimuladoResponse criarSimulado(@RequestParam Long usuarioId,
-                                          @RequestBody CriarSimuladoRequest request) {
-        return simuladoService.criarSimulado(request, usuarioId);
+    public ResponseEntity<SimuladoResponse> criarSimuladoComFiltro(
+            @RequestParam Long usuarioId,
+            @RequestBody CriarSimuladoRequest request
+    ) {
+        return ResponseEntity.ok(simuladoService.criarSimulado(request, usuarioId));
     }
+
+
+
 
     @GetMapping("/usuario/{usuarioId}/ativo")
     @Override

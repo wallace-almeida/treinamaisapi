@@ -47,6 +47,7 @@ public class PacoteService {
                 .duracaoDias(request.getDuracaoDias())
                 .concurso(concurso)
                 .temas(temas)
+                .versao(1)
                 .build();
 
         pacoteRepository.save(pacote);
@@ -59,6 +60,56 @@ public class PacoteService {
                 .duracaoDias(pacote.getDuracaoDias())
                 .concursoNome(concurso.getNome())
                 .temas(temas.stream().map(Tema::getNome).collect(Collectors.toList()))
+                .versao(pacote.getVersao())
                 .build();
     }
+
+    @Transactional
+    public PacoteResponse atualizarPacote(Long id, PacoteRequest request) {
+        Pacote pacote = pacoteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pacote não encontrado"));
+
+        // Atualiza somente se o valor for fornecido
+        if (request.getNome() != null) {
+            pacote.setNome(request.getNome());
+        }
+        if (request.getDescricao() != null) {
+            pacote.setDescricao(request.getDescricao());
+        }
+        if (request.getPreco() != null) {
+            pacote.setPreco(request.getPreco());
+        }
+        if (request.getDuracaoDias() != 0) { // se quiser considerar 0 como não enviado
+            pacote.setDuracaoDias(request.getDuracaoDias());
+        }
+        if (request.getTemaIds() != null && !request.getTemaIds().isEmpty()) {
+            List<Tema> temas = temaRepository.findAllById(request.getTemaIds());
+            pacote.setTemas(temas);
+        }
+
+        // Incrementa versão a cada atualização
+        pacote.setVersao(pacote.getVersao() + 1);
+
+        pacoteRepository.save(pacote);
+
+        return PacoteResponse.builder()
+                .id(pacote.getId())
+                .nome(pacote.getNome())
+                .descricao(pacote.getDescricao())
+                .preco(pacote.getPreco())
+                .duracaoDias(pacote.getDuracaoDias())
+                .concursoNome(pacote.getConcurso().getNome())
+                .temas(pacote.getTemas().stream().map(Tema::getNome).collect(Collectors.toList()))
+                .versao(pacote.getVersao())
+                .build();
+    }
+
+
+    @Transactional(readOnly = true)
+    public Integer buscarVersaoPorId(Long pacoteId) {
+        Pacote pacote = pacoteRepository.findById(pacoteId)
+                .orElseThrow(() -> new RuntimeException("Pacote não encontrado"));
+        return pacote.getVersao();
+    }
+
 }

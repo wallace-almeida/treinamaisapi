@@ -21,4 +21,12 @@ public interface PacoteControllerSwagger {
 
     @GetMapping("/ativos/{usuarioId}")
     List<PacoteCompradoComUsuarioDTO> listarAtivas(@PathVariable Long usuarioId);
+
+    @PutMapping("/atualizar/{id}")
+    PacoteResponse atualizarPacote(@PathVariable Long id, @RequestBody PacoteRequest request);
+
+
+
+    @GetMapping("/{id}/versao")
+    Integer getVersao(@PathVariable("id") Long pacoteId);
 }

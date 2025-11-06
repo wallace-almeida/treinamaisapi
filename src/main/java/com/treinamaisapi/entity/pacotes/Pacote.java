@@ -27,6 +27,9 @@ public class Pacote {
     @Column(nullable = false)
     private String nome; // Ex: "Pacote Completo EAER 2025"
 
+    @Column(nullable = false)
+    private Integer versao = 1;
+
     @Column(columnDefinition = "TEXT")
     private String descricao;
 
@@ -47,4 +50,7 @@ public class Pacote {
             inverseJoinColumns = @JoinColumn(name = "tema_id")
     )
     private List<Tema> temas = new ArrayList<>();
+
+
+
 }

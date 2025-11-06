@@ -33,4 +33,15 @@ public class PacoteController implements PacoteControllerSwagger {
         return pacoteCompradoService.listarComprasAtivas(usuarioId);
     }
 
+    @PutMapping("/atualizar/{id}")
+    @Override
+    public PacoteResponse atualizarPacote(@PathVariable Long id, @RequestBody PacoteRequest request) {
+        return pacoteService.atualizarPacote(id, request);
+    }
+
+    @GetMapping("/{id}/versao")
+    @Override
+    public Integer getVersao(@PathVariable("id") Long pacoteId) {
+        return pacoteService.buscarVersaoPorId(pacoteId);
+    }
 }

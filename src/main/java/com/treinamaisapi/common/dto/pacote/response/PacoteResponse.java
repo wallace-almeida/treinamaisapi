@@ -16,4 +16,5 @@ public class PacoteResponse {
     private int duracaoDias;
     private String concursoNome;
     private List<String> temas;
+    private Integer versao;
 }
