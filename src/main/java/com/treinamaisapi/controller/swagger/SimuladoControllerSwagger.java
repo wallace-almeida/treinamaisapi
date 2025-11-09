@@ -22,11 +22,8 @@ public interface SimuladoControllerSwagger {
 
 
     // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
-
-
-    // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
     @PostMapping("/create")
-    ResponseEntity<SimuladoResponse> criarSimuladoComFiltro(
+    ResponseEntity<SimuladoExecucaoResponse> criarSimuladoComFiltro(
             @RequestParam Long usuarioId,
             @RequestBody CriarSimuladoRequest request
     );

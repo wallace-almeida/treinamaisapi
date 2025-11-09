@@ -12,6 +12,8 @@ import com.treinamaisapi.common.dto.simulado.response.FeedbackQuestaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
@@ -47,23 +49,21 @@ public class SimuladoService {
 
 
     @Transactional
-    public SimuladoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
+    public SimuladoExecucaoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
 
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
 
-        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId)
-                .stream()
-                .anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
+        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId).stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
 
         if (!possuiAcesso) {
-            throw new IllegalStateException("Usuário não possui acesso a este concurso.");
+            throw new BusinessException("Usuário não possui acesso a este concurso.");
         }
 
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
         // monta Specification usando o CriarSimuladoRequest
         Specification<Questao> spec = QuestaoSpecification.filtrar(request);
+
 
         // busca as questões (pode paginar se preferir)
         List<Questao> questoes = questaoRepository.findAll(spec);
@@ -74,46 +74,25 @@ public class SimuladoService {
 
         Collections.shuffle(questoes);
 
-        List<Questao> questoesSelecionadas =
-                questoes.stream()
-                        .limit(quantidadeTotal)
-                        .toList();
+        List<Questao> questoesSelecionadas = questoes.stream().limit(quantidadeTotal).toList();
 
 
         // cria simulado (uso de getters para acessar listas)
-        Simulado simulado = Simulado.builder()
-                .usuario(usuario)
-                .quantidadeQuestoes(questoesSelecionadas.size())
-                .tempoDuracao(request.getTempoDuracao())
-                .dataCriacao(LocalDateTime.now())
-                .status(StatusSimulado.EM_ANDAMENTO)
-                .nivelDificuldade(request.getNivelDificuldade())
-                .banca(request.getBanca())
-                .temaId(firstOrNull(request.getTemaIds()))
-                .capituloId(firstOrNull(request.getCapituloIds()))
-                .subcapituloId(firstOrNull(request.getSubcapituloIds()))
-                .build();
+        Simulado simulado = Simulado.builder().usuario(usuario).quantidadeQuestoes(questoesSelecionadas.size()).tempoDuracao(request.getTempoDuracao()).dataCriacao(LocalDateTime.now()).status(StatusSimulado.EM_ANDAMENTO).nivelDificuldade(request.getNivelDificuldade()).banca(request.getBanca()).temaId(firstOrNull(request.getTemaIds())).capituloId(firstOrNull(request.getCapituloIds())).subcapituloId(firstOrNull(request.getSubcapituloIds())).build();
 
         simuladoRepository.save(simulado);
 
-        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
-                .map(q -> QuestaoSimulado.builder()
-                        .simulado(simulado)
-                        .questao(q)
-                        .pontuacaoObtida(0.0)
-                        .build())
-                .collect(Collectors.toList());
+        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream().map(q -> QuestaoSimulado.builder().simulado(simulado).questao(q).pontuacaoObtida(0.0).build()).collect(Collectors.toList());
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
-        return SimuladoResponse.fromEntity(simulado, vinculadas);
+        return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
+
 
     private Long firstOrNull(List<Long> list) {
         return (list != null && !list.isEmpty()) ? list.get(0) : null;
     }
-
-
 
 
     @Transactional(readOnly = true)
@@ -173,6 +152,10 @@ public class SimuladoService {
     public ResultadoSimuladoResponse visualizarResultado(Long simuladoId) {
         Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
+        if (!StatusSimulado.FINALIZADO.equals(simulado.getStatus())) {
+            throw new BusinessException("O resultado só pode ser visualizado após o simulado ser finalizado.");
+        }
+
         List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simuladoId);
 
         int total = questoes.size();
@@ -211,7 +194,7 @@ public class SimuladoService {
 
             List<String> niveis = pacote.getTemas().stream().flatMap(t -> t.getCapitulos().stream()).flatMap(c -> c.getSubcapitulos().stream()).flatMap(s -> s.getQuestoes().stream()).map(q -> q.getNivelDificuldade().name()).distinct().toList();
 
-            return PacoteFiltroSimuladoDTO.builder().pacoteId(pacote.getId()).nomePacote(pacote.getNome()).concursoId(pacote.getConcurso().getId()).nomeConcurso(pacote.getConcurso().getNome()).temas(temas).bancasDisponiveis(bancas).niveisDisponiveis(niveis).build();
+            return PacoteFiltroSimuladoDTO.builder().pacoteId(pacote.getId()).nomePacote(pacote.getNome()).concursoId(pacote.getConcurso().getId()).nomeConcurso(pacote.getConcurso().getNome()).versao(pacote.getVersao()).temas(temas).bancasDisponiveis(bancas).niveisDisponiveis(niveis).build();
         }).toList();
     }
 

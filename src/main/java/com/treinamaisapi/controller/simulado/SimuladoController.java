@@ -25,12 +25,13 @@ public class SimuladoController implements SimuladoControllerSwagger {
     // Cria e retorna o simulado recém-gerado (EM_ANDAMENTO)
     @PostMapping("/create")
     @Override
-    public ResponseEntity<SimuladoResponse> criarSimuladoComFiltro(
+    public ResponseEntity<SimuladoExecucaoResponse> criarSimuladoComFiltro(
             @RequestParam Long usuarioId,
             @RequestBody CriarSimuladoRequest request
     ) {
         return ResponseEntity.ok(simuladoService.criarSimulado(request, usuarioId));
     }
+
 
 
 

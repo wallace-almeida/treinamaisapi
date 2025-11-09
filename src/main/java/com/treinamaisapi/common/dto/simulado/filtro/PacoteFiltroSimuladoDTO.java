@@ -13,6 +13,7 @@ public class PacoteFiltroSimuladoDTO {
     private String nomePacote;
     private Long concursoId;
     private String nomeConcurso;
+    private Integer versao;
 
     private List<TemaFiltroDTO> temas;
     private List<String> bancasDisponiveis;
