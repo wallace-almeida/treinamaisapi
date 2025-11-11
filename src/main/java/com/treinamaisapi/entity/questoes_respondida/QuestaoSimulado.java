@@ -28,9 +28,16 @@ public class QuestaoSimulado {
     private String respostaUsuario; // A, B, C, D (pode ser null antes de responder)
 
     @Column(name = "correta", nullable = true)
-    private Boolean correta= null; // null = não respondida, true/false após responder
+    private Boolean correta = null; // null = não respondida, true/false após responder
 
     @Column(name = "pontuacao_obtida")
     private Double pontuacaoObtida; // ex 1.0 / 0.0
+
+    // NOVOS CAMPOS
+    @Column(name = "respondida", nullable = false)
+    private Boolean respondida = false; // true/false se usuário respondeu
+
+    @Column(name = "ordem", nullable = false)
+    private Integer ordem = 0; // para manter a ordem da questão no simulado
 }
 

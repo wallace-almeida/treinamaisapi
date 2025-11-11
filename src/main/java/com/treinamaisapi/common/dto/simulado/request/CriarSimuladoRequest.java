@@ -10,8 +10,15 @@ public class CriarSimuladoRequest {
     private List<Long> temaIds;
     private List<Long> capituloIds;
     private List<Long> subcapituloIds;
-    private String nivelDificuldade; // FACIL, MEDIO, DIFICIL
-    private String banca; // ex: CESPE, FGV, Plataforma
+
+    private List<String> bancas;
+    private List<String> niveis;
+
     private Integer quantidadeQuestoes;
     private Integer tempoDuracao;
+
+    // Comportamento avançado
+    private Boolean inteligente;       // escolher baseado em dados
+    private Boolean balanceado;        // nivel + assunto
+    private Boolean usarFraquezas;     // focar fracos
 }

@@ -25,6 +25,10 @@ import com.treinamaisapi.entity.usuarios.Usuario;
 
 import com.treinamaisapi.repository.*;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
+import com.treinamaisapi.service.simulado.auxiliar.QuestaoBalanceService;
+import com.treinamaisapi.service.simulado.auxiliar.QuestaoFraquezaService;
+import com.treinamaisapi.service.simulado.auxiliar.QuestaoHistoricoService;
+import com.treinamaisapi.service.simulado.auxiliar.QuestaoSelectorService;
 import com.treinamaisapi.spec.QuestaoSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
@@ -33,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,14 +51,22 @@ public class SimuladoService {
     private final HistoricoEstudoRepository historicoEstudoRepository;
     private final PacoteCompradoService pacoteCompradoService;
     private final PacoteCompradoRepository pacoteCompradoRepository;
+    private final QuestaoSelectorService questaoSelectorService;
+    private final QuestaoBalanceService questaoBalanceService;
+    private final QuestaoHistoricoService questaoHistoricoService;
+    private final QuestaoFraquezaService questaoFraquezaService;
 
 
     @Transactional
     public SimuladoExecucaoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
 
-        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
+        // 1) Usuário
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
 
-        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId).stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
+        // 2) Valida compra
+        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId)
+                .stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
 
         if (!possuiAcesso) {
             throw new BusinessException("Usuário não possui acesso a este concurso.");
@@ -61,34 +74,99 @@ public class SimuladoService {
 
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        // monta Specification usando o CriarSimuladoRequest
-        Specification<Questao> spec = QuestaoSpecification.filtrar(request);
+        // 3) Busca questões baseadas nos filtros
+        List<Questao> questoesFiltradas = questaoRepository.findAll(
+                QuestaoSpecification.filtrar(request)
+        );
 
-
-        // busca as questões (pode paginar se preferir)
-        List<Questao> questoes = questaoRepository.findAll(spec);
-
-        if (questoes.isEmpty()) {
+        if (questoesFiltradas.isEmpty()) {
             throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
         }
 
-        Collections.shuffle(questoes);
+        // ✅ Remove duplicadas logo no início
+        questoesFiltradas = questoesFiltradas.stream()
+                .distinct()
+                .toList();
 
-        List<Questao> questoesSelecionadas = questoes.stream().limit(quantidadeTotal).toList();
+        // 4) Seleção inicial
+        List<Questao> questoesSelecionadas = questaoSelectorService.selecionar(
+                questoesFiltradas, usuario, quantidadeTotal, request
+        );
 
+        // 5) Balanceamento / Histórico / Fraqueza
+        if (Boolean.TRUE.equals(request.getInteligente())) {
 
-        // cria simulado (uso de getters para acessar listas)
-        Simulado simulado = Simulado.builder().usuario(usuario).quantidadeQuestoes(questoesSelecionadas.size()).tempoDuracao(request.getTempoDuracao()).dataCriacao(LocalDateTime.now()).status(StatusSimulado.EM_ANDAMENTO).nivelDificuldade(request.getNivelDificuldade()).banca(request.getBanca()).temaId(firstOrNull(request.getTemaIds())).capituloId(firstOrNull(request.getCapituloIds())).subcapituloId(firstOrNull(request.getSubcapituloIds())).build();
+            questoesSelecionadas = questaoBalanceService.balancear(questoesSelecionadas, request);
+
+            questoesSelecionadas = questaoHistoricoService.filtrarNaoRespondidas(usuario, questoesSelecionadas);
+
+            questoesSelecionadas = questaoFraquezaService.priorizarFraquezas(usuario, questoesSelecionadas);
+        }
+
+        // ✅ ✅ ✅  NOVO TRECHO AQUI
+        // ------------------------------------------------------------------
+        // Remove duplicadas
+        questoesSelecionadas = new ArrayList<>(questoesSelecionadas.stream()
+                .distinct()
+                .toList());
+
+        // 🔥 Se faltarem questões, precisamos completar
+        if (questoesSelecionadas.size() < quantidadeTotal) {
+
+            List<Questao> restantes = new ArrayList<>(questoesFiltradas);
+            restantes.removeAll(questoesSelecionadas);
+
+            for (Questao q : restantes) {
+                if (questoesSelecionadas.size() >= quantidadeTotal) break;
+                questoesSelecionadas.add(q);
+            }
+        }
+
+        // Garante máximo
+        questoesSelecionadas = questoesSelecionadas.stream()
+                .limit(quantidadeTotal)
+                .toList();
+        // ------------------------------------------------------------------
+
+        if (questoesSelecionadas.isEmpty()) {
+            throw new RuntimeException("Nenhuma questão disponível após filtragem inteligente.");
+        }
+
+        // 6) Cria simulado
+        Simulado simulado = Simulado.builder()
+                .usuario(usuario)
+                .quantidadeQuestoes(questoesSelecionadas.size())
+                .tempoDuracao(request.getTempoDuracao())
+                .dataCriacao(LocalDateTime.now())
+                .status(StatusSimulado.EM_ANDAMENTO)
+                .bancas(request.getBancas() != null ? new ArrayList<>(request.getBancas()) : null)
+                .niveis(request.getNiveis() != null ? new ArrayList<>(request.getNiveis()) : null)
+                .temaIds(request.getTemaIds() != null ? new ArrayList<>(request.getTemaIds()) : null)
+                .capituloIds(request.getCapituloIds() != null ? new ArrayList<>(request.getCapituloIds()) : null)
+                .subcapituloIds(request.getSubcapituloIds() != null ? new ArrayList<>(request.getSubcapituloIds()) : null)
+                .inteligente(request.getInteligente())
+                .balanceado(request.getBalanceado())
+                .build();
 
         simuladoRepository.save(simulado);
 
-        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream().map(q -> QuestaoSimulado.builder().simulado(simulado).questao(q).pontuacaoObtida(0.0).build()).collect(Collectors.toList());
+        // 7) Criação de vínculo
+        AtomicInteger idx = new AtomicInteger(1);
+
+        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
+                .map(q -> QuestaoSimulado.builder()
+                        .simulado(simulado)
+                        .questao(q)
+                        .pontuacaoObtida(0.0)
+                        .respondida(false)
+                        .ordem(idx.getAndIncrement())
+                        .build()
+                ).toList();
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
         return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
-
 
     private Long firstOrNull(List<Long> list) {
         return (list != null && !list.isEmpty()) ? list.get(0) : null;

@@ -40,11 +40,13 @@ public class SimuladoResponse {
                 .quantidadeQuestoes(simulado.getQuantidadeQuestoes())
                 .tempoDuracao(simulado.getTempoDuracao())
                 .pontuacaoFinal(simulado.getPontuacaoFinal())
-                .banca(simulado.getBanca())
-                .nivelDificuldade(simulado.getNivelDificuldade())
+                // concatena as bancas em uma string separada por vírgula
+                .banca(simulado.getBancas() != null ? String.join(", ", simulado.getBancas()) : null)
+                .nivelDificuldade(simulado.getNiveis() != null ? String.join(", ", simulado.getNiveis()) : null)
                 .status(simulado.getStatus() != null ? simulado.getStatus().name() : null)
                 .questoes(questoes)
                 .build();
+
     }
 
 

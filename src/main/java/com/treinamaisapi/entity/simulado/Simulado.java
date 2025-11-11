@@ -27,22 +27,35 @@ public class Simulado {
     private Usuario usuario;
 
     private Integer quantidadeQuestoes;
-    private Integer tempoDuracao; // em minutos
+    private Integer tempoDuracao;
+
     private LocalDateTime dataCriacao;
+    private LocalDateTime dataFinalizacao;
 
     @Enumerated(EnumType.STRING)
     private StatusSimulado status;
 
     private Double pontuacaoFinal;
 
-    // filtros usados na criação
-    private Long temaId;
-    private Long capituloId;
-    private Long subcapituloId;
-    private String nivelDificuldade;
-    private String banca;
+    // Filtros usados
+    @ElementCollection
+    private List<Long> temaIds;
 
-    @OneToMany(mappedBy = "simulado", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<QuestaoSimulado> questoes;
+    @ElementCollection
+    private List<Long> capituloIds;
+
+    @ElementCollection
+    private List<Long> subcapituloIds;
+
+    @ElementCollection
+    private List<String> bancas;
+
+    @ElementCollection
+    private List<String> niveis;
+
+    // Nova: perfil inteligente
+    private Boolean inteligente;
+    private Boolean balanceado;
+    private Boolean prioridadeFraquezas;
 
 }

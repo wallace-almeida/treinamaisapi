@@ -31,9 +31,9 @@ public class SimuladoExecucaoResponse {
                 .dataCriacao(simulado.getDataCriacao())
                 .tempoDuracao(simulado.getTempoDuracao())
                 .quantidadeQuestoes(simulado.getQuantidadeQuestoes())
-                .nivelDificuldade(simulado.getNivelDificuldade())
-                .banca(simulado.getBanca())
-                .status(simulado.getStatus().name())
+                .nivelDificuldade(simulado.getNiveis() != null ? String.join(", ", simulado.getNiveis()) : null)
+                .banca(simulado.getBancas() != null ? String.join(", ", simulado.getBancas()) : null)
+                .status(simulado.getStatus() != null ? simulado.getStatus().name() : null)
                 .questoes(
                         questoes.stream()
                                 .map(QuestaoExecucaoResponse::fromEntity)
@@ -41,4 +41,5 @@ public class SimuladoExecucaoResponse {
                 )
                 .build();
     }
+
 }
