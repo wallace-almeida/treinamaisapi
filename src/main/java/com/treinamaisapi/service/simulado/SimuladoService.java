@@ -93,15 +93,14 @@ public class SimuladoService {
                 questoesFiltradas, usuario, quantidadeTotal, request
         );
 
-        // 5) Balanceamento / Histórico / Fraqueza
-        if (Boolean.TRUE.equals(request.getInteligente())) {
+        // 5) Modo inteligente Balanceamento / Histórico / Fraqueza
 
-            questoesSelecionadas = questaoBalanceService.balancear(questoesSelecionadas, request);
+        questoesSelecionadas = questaoBalanceService.balancear(questoesSelecionadas, request);
 
-            questoesSelecionadas = questaoHistoricoService.filtrarNaoRespondidas(usuario, questoesSelecionadas);
+        questoesSelecionadas = questaoHistoricoService.filtrarNaoRespondidas(usuario, questoesSelecionadas);
 
-            questoesSelecionadas = questaoFraquezaService.priorizarFraquezas(usuario, questoesSelecionadas);
-        }
+        questoesSelecionadas = questaoFraquezaService.priorizarFraquezas(usuario, questoesSelecionadas);
+
 
         // ✅ ✅ ✅  NOVO TRECHO AQUI
         // ------------------------------------------------------------------
@@ -144,8 +143,8 @@ public class SimuladoService {
                 .temaIds(request.getTemaIds() != null ? new ArrayList<>(request.getTemaIds()) : null)
                 .capituloIds(request.getCapituloIds() != null ? new ArrayList<>(request.getCapituloIds()) : null)
                 .subcapituloIds(request.getSubcapituloIds() != null ? new ArrayList<>(request.getSubcapituloIds()) : null)
-                .inteligente(request.getInteligente())
-                .balanceado(request.getBalanceado())
+                .inteligente(true)
+                .balanceado(true)
                 .build();
 
         simuladoRepository.save(simulado);

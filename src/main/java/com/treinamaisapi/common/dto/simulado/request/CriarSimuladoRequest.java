@@ -7,6 +7,7 @@ import java.util.List;
 @Data
 public class CriarSimuladoRequest {
     private Long concursoId;
+
     private List<Long> temaIds;
     private List<Long> capituloIds;
     private List<Long> subcapituloIds;
@@ -16,9 +17,4 @@ public class CriarSimuladoRequest {
 
     private Integer quantidadeQuestoes;
     private Integer tempoDuracao;
-
-    // Comportamento avançado
-    private Boolean inteligente;       // escolher baseado em dados
-    private Boolean balanceado;        // nivel + assunto
-    private Boolean usarFraquezas;     // focar fracos
 }
