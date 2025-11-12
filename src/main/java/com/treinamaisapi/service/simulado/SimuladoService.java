@@ -18,6 +18,7 @@ import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
+import com.treinamaisapi.entity.questao_historico_usuario.QuestaoHistoricoUsuario;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
@@ -55,12 +56,13 @@ public class SimuladoService {
     private final QuestaoBalanceService questaoBalanceService;
     private final QuestaoHistoricoService questaoHistoricoService;
     private final QuestaoFraquezaService questaoFraquezaService;
+    private final QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository;
 
 
     @Transactional
     public SimuladoExecucaoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
 
-        // 1) Usuário
+        // 1) Carrega usuário
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
 
@@ -72,9 +74,10 @@ public class SimuladoService {
             throw new BusinessException("Usuário não possui acesso a este concurso.");
         }
 
+        // 3) Define quantidade de questões
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
 
-        // 3) Busca questões baseadas nos filtros
+        // 4) Busca questões baseadas nos filtros
         List<Questao> questoesFiltradas = questaoRepository.findAll(
                 QuestaoSpecification.filtrar(request)
         );
@@ -88,30 +91,29 @@ public class SimuladoService {
                 .distinct()
                 .toList();
 
-        // 4) Seleção inicial
+        // 5) Seleção inicial
         List<Questao> questoesSelecionadas = questaoSelectorService.selecionar(
                 questoesFiltradas, usuario, quantidadeTotal, request
         );
 
-        // 5) Modo inteligente Balanceamento / Histórico / Fraqueza
+        // 6) Modo inteligente
+        // 🔹 Primeiro busca questões de fraqueza
+        questoesSelecionadas = questaoFraquezaService.buscarQuestoesDeFraqueza(usuario, questoesSelecionadas, quantidadeTotal);
 
-        questoesSelecionadas = questaoBalanceService.balancear(questoesSelecionadas, request);
-
+        // 🔹 Depois filtra questões não respondidas
         questoesSelecionadas = questaoHistoricoService.filtrarNaoRespondidas(usuario, questoesSelecionadas);
 
-        questoesSelecionadas = questaoFraquezaService.priorizarFraquezas(usuario, questoesSelecionadas);
+        // 🔹 Por fim, balanceia questões (histórico / balanceamento geral)
+        questoesSelecionadas = questaoBalanceService.balancear(questoesSelecionadas, request);
 
-
-        // ✅ ✅ ✅  NOVO TRECHO AQUI
         // ------------------------------------------------------------------
-        // Remove duplicadas
+        // ✅ Remove duplicadas novamente
         questoesSelecionadas = new ArrayList<>(questoesSelecionadas.stream()
                 .distinct()
                 .toList());
 
-        // 🔥 Se faltarem questões, precisamos completar
+        // 🔥 Se faltarem questões, completa com restantes
         if (questoesSelecionadas.size() < quantidadeTotal) {
-
             List<Questao> restantes = new ArrayList<>(questoesFiltradas);
             restantes.removeAll(questoesSelecionadas);
 
@@ -131,7 +133,7 @@ public class SimuladoService {
             throw new RuntimeException("Nenhuma questão disponível após filtragem inteligente.");
         }
 
-        // 6) Cria simulado
+        // 7) Cria simulado
         Simulado simulado = Simulado.builder()
                 .usuario(usuario)
                 .quantidadeQuestoes(questoesSelecionadas.size())
@@ -145,13 +147,13 @@ public class SimuladoService {
                 .subcapituloIds(request.getSubcapituloIds() != null ? new ArrayList<>(request.getSubcapituloIds()) : null)
                 .inteligente(true)
                 .balanceado(true)
+                .prioridadeFraquezas(true)
                 .build();
 
         simuladoRepository.save(simulado);
 
-        // 7) Criação de vínculo
+        // 8) Criação de vínculo QuestaoSimulado
         AtomicInteger idx = new AtomicInteger(1);
-
         List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
                 .map(q -> QuestaoSimulado.builder()
                         .simulado(simulado)
@@ -164,6 +166,7 @@ public class SimuladoService {
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
+        // 9) Retorna simulado pronto para execução
         return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
 
@@ -190,40 +193,69 @@ public class SimuladoService {
 
     @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
-        Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
+        Simulado simulado = simuladoRepository.findById(simuladoId)
+                .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
         if (!simulado.getStatus().equals(StatusSimulado.EM_ANDAMENTO)) {
-            throw new RuntimeException("Simulado já finalizado ou não está em andamento");
+            throw new NotFoundException("Simulado já finalizado");
         }
 
         double totalPontuacao = 0.0;
         int acertos = 0;
+        LocalDateTime agora = LocalDateTime.now();
+
+        // ✅ Lista para salvar todos os históricos de uma vez
+        List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
 
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
-            QuestaoSimulado qs = questaoSimuladoRepository.findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId()).orElseThrow(() -> new RuntimeException("Questão não encontrada no simulado"));
+            QuestaoSimulado qs = questaoSimuladoRepository
+                    .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
+                    .orElseThrow(() -> new NotFoundException("Questão não encontrada no simulado"));
 
             boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
             qs.setRespostaUsuario(r.getRespostaUsuario());
             qs.setCorreta(correta);
             qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
+            qs.setRespondida(true);
             questaoSimuladoRepository.save(qs);
+
+            // 🔥 Monta o histórico, mas não salva ainda
+            QuestaoHistoricoUsuario historicoQuestao = QuestaoHistoricoUsuario.builder()
+                    .usuario(simulado.getUsuario())
+                    .questao(qs.getQuestao())
+                    .data(agora)
+                    .acertou(correta)
+                    .simuladoId(simulado.getId())
+                    .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
+                    .build();
+
+            historicos.add(historicoQuestao); // adiciona à lista
 
             if (correta) acertos++;
             totalPontuacao += qs.getPontuacaoObtida();
         }
 
-        double pontuacaoFinal = (totalPontuacao / request.getRespostas().size()) * 100.0;
+        // ✅ Salva todos os históricos de uma vez (melhor performance)
+        questaoHistoricoUsuarioRepository.saveAll(historicos);
+
+        double pontuacaoFinal = (acertos * 100.0) / request.getRespostas().size();
         simulado.setPontuacaoFinal(pontuacaoFinal);
         simulado.setStatus(StatusSimulado.FINALIZADO);
         simuladoRepository.save(simulado);
 
-        // criar entrada no histórico
-        HistoricoEstudo historico = HistoricoEstudo.builder().tipoAtividade(TipoAtividade.SIMULADO).pontuacaoObtida(pontuacaoFinal).acertos(acertos).usuario(simulado.getUsuario()).simulado(simulado).build();
+        HistoricoEstudo historico = HistoricoEstudo.builder()
+                .tipoAtividade(TipoAtividade.SIMULADO)
+                .pontuacaoObtida(pontuacaoFinal)
+                .acertos(acertos)
+                .usuario(simulado.getUsuario())
+                .simulado(simulado)
+                .build();
 
         historicoEstudoRepository.save(historico);
 
         return visualizarResultado(simuladoId);
     }
+
 
     @Transactional(readOnly = true)
     public ResultadoSimuladoResponse visualizarResultado(Long simuladoId) {
