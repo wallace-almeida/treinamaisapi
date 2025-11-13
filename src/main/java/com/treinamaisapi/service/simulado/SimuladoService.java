@@ -170,9 +170,7 @@ public class SimuladoService {
         return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
 
-    private Long firstOrNull(List<Long> list) {
-        return (list != null && !list.isEmpty()) ? list.get(0) : null;
-    }
+
 
 
     @Transactional(readOnly = true)
