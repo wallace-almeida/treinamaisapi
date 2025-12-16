@@ -28,6 +28,9 @@ public class HistoricoEstudo {
 
     private Integer acertos;
 
+    @Column(name = "tempo_estudo_minutos")
+    private Long tempoEstudoMinutos;
+
     @CreationTimestamp
     private LocalDateTime dataEstudo;
 

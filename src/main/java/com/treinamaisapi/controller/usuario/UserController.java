@@ -1,13 +1,16 @@
 package com.treinamaisapi.controller.usuario;
 
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
+import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import com.treinamaisapi.controller.swagger.UserControllerSwagger;
+
 
 import com.treinamaisapi.service.usuario.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.*;
 
 
@@ -28,5 +31,16 @@ public class UserController implements UserControllerSwagger {
         userService.criarUsuario(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @GetMapping("/progresso/{usuarioId}")
+    @Override
+    public ResponseEntity<ProgressoUsuarioResponse> obterProgresso(
+            @PathVariable Long usuarioId) {
+
+        return ResponseEntity.ok(
+                userService.obterProgresso(usuarioId)
+        );
+    }
+
 
 }

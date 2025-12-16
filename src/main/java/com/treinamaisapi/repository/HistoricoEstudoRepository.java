@@ -18,5 +18,12 @@ public interface HistoricoEstudoRepository extends JpaRepository<HistoricoEstudo
 
     List<HistoricoEstudo> findByUsuarioIdOrderByDataEstudoDesc(Long usuarioId);
 
+    // Soma do tempo total de estudo
+    @Query("""
+        SELECT COALESCE(SUM(h.tempoEstudoMinutos), 0)
+        FROM HistoricoEstudo h
+        WHERE h.usuario.id = :usuarioId
+    """)
+    Long sumTempoEstudoByUsuario(@Param("usuarioId") Long usuarioId);
 
 }

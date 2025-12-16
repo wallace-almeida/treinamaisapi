@@ -61,4 +61,10 @@ public interface QuestaoHistoricoUsuarioRepository extends JpaRepository<Questao
 
 
 
+    // Total de questões resolvidas
+    Long countByUsuarioId(Long usuarioId);
+
+    // Total de acertos
+    Long countByUsuarioIdAndAcertouTrue(Long usuarioId);
+
 }

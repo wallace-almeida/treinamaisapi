@@ -5,8 +5,11 @@ package com.treinamaisapi.controller.swagger;
 
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
 import com.treinamaisapi.common.dto.usuario.UsuarioResponse;
+import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -16,4 +19,8 @@ public interface UserControllerSwagger {
 
     @PostMapping("/create")
     ResponseEntity<Void> createUser(@RequestBody UsuarioRequest request);
+
+    @GetMapping("/progresso/{usuarioId}")
+    ResponseEntity<ProgressoUsuarioResponse> obterProgresso(
+            @PathVariable Long usuarioId);
 }
