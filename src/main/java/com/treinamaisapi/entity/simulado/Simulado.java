@@ -5,6 +5,8 @@ import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,7 +31,13 @@ public class Simulado {
     private Integer quantidadeQuestoes;
     private Integer tempoDuracao;
 
+
+    @CreationTimestamp
+    @Column(updatable = false)
     private LocalDateTime dataCriacao;
+
+
+
     private LocalDateTime dataFinalizacao;
 
     @Enumerated(EnumType.STRING)

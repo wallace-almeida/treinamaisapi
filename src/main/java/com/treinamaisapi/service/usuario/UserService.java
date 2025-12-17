@@ -7,6 +7,7 @@ import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.HistoricoEstudoRepository;
 import com.treinamaisapi.repository.QuestaoHistoricoUsuarioRepository;
+import com.treinamaisapi.repository.SimuladoRepository;
 import com.treinamaisapi.repository.UsuarioRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,11 +20,13 @@ public class UserService {
     private final UsuarioRepository usuarioRepository;
     private final QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository;
     private final HistoricoEstudoRepository historicoEstudoRepository;
+    private final SimuladoRepository simuladoRepository;
 
-    public UserService(UsuarioRepository usuarioRepository, QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository, HistoricoEstudoRepository historicoEstudoRepository) {
+    public UserService(UsuarioRepository usuarioRepository, QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository, HistoricoEstudoRepository historicoEstudoRepository, SimuladoRepository simuladoRepository) {
         this.usuarioRepository = usuarioRepository;
         this.questaoHistoricoUsuarioRepository = questaoHistoricoUsuarioRepository;
         this.historicoEstudoRepository = historicoEstudoRepository;
+        this.simuladoRepository = simuladoRepository;
     }
 
     public Usuario findByEmail(String email) {
@@ -57,7 +60,7 @@ public class UserService {
                 ? 0.0
                 : (totalAcertos * 100.0) / totalQuestoes;
 
-        Long minutos = historicoEstudoRepository
+        Long minutos = simuladoRepository
                 .sumTempoEstudoByUsuario(usuarioId);
 
         return ProgressoUsuarioResponse.builder()

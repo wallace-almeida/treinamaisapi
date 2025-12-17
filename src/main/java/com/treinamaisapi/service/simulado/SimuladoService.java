@@ -239,6 +239,7 @@ public class SimuladoService {
         double pontuacaoFinal = (acertos * 100.0) / request.getRespostas().size();
         simulado.setPontuacaoFinal(pontuacaoFinal);
         simulado.setStatus(StatusSimulado.FINALIZADO);
+        simulado.setDataFinalizacao(LocalDateTime.now());
         simuladoRepository.save(simulado);
 
         HistoricoEstudo historico = HistoricoEstudo.builder()
