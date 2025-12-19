@@ -37,6 +37,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -192,79 +193,105 @@ public class SimuladoService {
 
     @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
+
         Simulado simulado = simuladoRepository.findById(simuladoId)
                 .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
-        if (!simulado.getStatus().equals(StatusSimulado.EM_ANDAMENTO)) {
+        if (simulado.getStatus() != StatusSimulado.EM_ANDAMENTO) {
             throw new NotFoundException("Simulado já finalizado");
         }
 
-        double totalPontuacao = 0.0;
+        // 🔒 Garantia de integridade
+        if (simulado.getDataCriacao() == null) {
+            throw new IllegalStateException("Simulado sem data de criação válida");
+        }
+
         int acertos = 0;
         LocalDateTime agora = LocalDateTime.now();
-
-        // ✅ Lista para salvar todos os históricos de uma vez
         List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
 
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
+
             QuestaoSimulado qs = questaoSimuladoRepository
                     .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
-                    .orElseThrow(() -> new NotFoundException("Questão não encontrada no simulado"));
+                    .orElseThrow(() -> new NotFoundException("Questão não encontrada"));
 
-            boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
+            boolean correta = qs.getQuestao()
+                    .getRespostaCorreta()
+                    .equalsIgnoreCase(r.getRespostaUsuario());
+
             qs.setRespostaUsuario(r.getRespostaUsuario());
             qs.setCorreta(correta);
-            qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
             qs.setRespondida(true);
-            questaoSimuladoRepository.save(qs);
+            qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
 
-            // RESGATA O TEMA (MATÉRIA)
+            questaoSimuladoRepository.save(qs);
 
             Tema tema = qs.getQuestao()
                     .getSubcapitulo()
                     .getCapitulo()
                     .getTema();
 
-
-            // 🔥 Monta o histórico, mas não salva ainda
-            QuestaoHistoricoUsuario historicoQuestao = QuestaoHistoricoUsuario.builder()
-                    .usuario(simulado.getUsuario())
-                    .questao(qs.getQuestao())
-                    .data(agora)
-                    .acertou(correta)
-                    .simuladoId(simulado.getId())
-                    .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
-                    .temaId(tema.getId())
-                    .temaNome(tema.getNome())
-                    .build();
-
-            historicos.add(historicoQuestao); // adiciona à lista
+            historicos.add(
+                    QuestaoHistoricoUsuario.builder()
+                            .usuario(simulado.getUsuario())
+                            .questao(qs.getQuestao())
+                            .dataResposta(agora)
+                            .acertou(correta)
+                            .simuladoId(simulado.getId())
+                            .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
+                            .temaId(tema.getId())
+                            .temaNome(tema.getNome())
+                            .build()
+            );
 
             if (correta) acertos++;
-            totalPontuacao += qs.getPontuacaoObtida();
         }
 
-        // ✅ Salva todos os históricos de uma vez (melhor performance)
         questaoHistoricoUsuarioRepository.saveAll(historicos);
 
         double pontuacaoFinal = (acertos * 100.0) / request.getRespostas().size();
+
+        // ⏱️ TEMPO REAL DE ESTUDO (CRIACAO ➜ FINALIZACAO)
+        LocalDateTime fim = LocalDateTime.now();
+
+        long tempoEstudoMinutos = Duration
+                .between(simulado.getDataCriacao(), fim)
+                .toMinutes();
+
+        // segurança extra
+        if (tempoEstudoMinutos < 0) {
+            tempoEstudoMinutos = 0;
+        }
+
+        // 🧠 Regra opcional: não deixar passar do tempo planejado
+        if (simulado.getTempoDuracao() != null &&
+                tempoEstudoMinutos > simulado.getTempoDuracao()) {
+
+            tempoEstudoMinutos = simulado.getTempoDuracao();
+        }
+
+        // Finaliza o simulado
         simulado.setPontuacaoFinal(pontuacaoFinal);
         simulado.setStatus(StatusSimulado.FINALIZADO);
-        simulado.setDataFinalizacao(LocalDateTime.now());
+        simulado.setDataFinalizacao(fim);
         simuladoRepository.save(simulado);
 
+        // Histórico de estudo (fonte oficial de tempo)
         HistoricoEstudo historico = HistoricoEstudo.builder()
                 .tipoAtividade(TipoAtividade.SIMULADO)
-                .pontuacaoObtida(pontuacaoFinal)
-                .acertos(acertos)
+                .tempoEstudoMinutos(tempoEstudoMinutos) // ✔ Long
                 .usuario(simulado.getUsuario())
-                .simulado(simulado)
+                .referenciaId(simulado.getId())
                 .build();
+
 
         historicoEstudoRepository.save(historico);
 
         return visualizarResultado(simuladoId);
     }
+
+
 
 
     @Transactional(readOnly = true)

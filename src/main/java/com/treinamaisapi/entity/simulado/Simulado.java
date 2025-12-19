@@ -29,6 +29,7 @@ public class Simulado {
     private Usuario usuario;
 
     private Integer quantidadeQuestoes;
+
     private Integer tempoDuracao;
 
 

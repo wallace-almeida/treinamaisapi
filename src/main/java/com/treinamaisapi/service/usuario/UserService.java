@@ -60,8 +60,8 @@ public class UserService {
                 ? 0.0
                 : (totalAcertos * 100.0) / totalQuestoes;
 
-        Long minutos = simuladoRepository
-                .sumTempoEstudoByUsuario(usuarioId);
+        Long minutos =
+                historicoEstudoRepository.sumTempoEstudoByUsuario(usuarioId);
 
         return ProgressoUsuarioResponse.builder()
                 .questoesResolvidas(totalQuestoes)

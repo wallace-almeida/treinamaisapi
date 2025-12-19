@@ -13,44 +13,57 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
-public interface QuestaoHistoricoUsuarioRepository extends JpaRepository<QuestaoHistoricoUsuario, Long>, JpaSpecificationExecutor<QuestaoHistoricoUsuario>,  PagingAndSortingRepository<QuestaoHistoricoUsuario, Long>{
+public interface QuestaoHistoricoUsuarioRepository
+        extends JpaRepository<QuestaoHistoricoUsuario, Long>,
+        JpaSpecificationExecutor<QuestaoHistoricoUsuario> {
+
     // 1️⃣ Últimas questões respondidas
-    @Query("SELECT qh.questao.id FROM QuestaoHistoricoUsuario qh " +
-            "WHERE qh.usuario.id = :usuarioId ORDER BY qh.data DESC")
+    @Query("""
+        SELECT qh.questao.id
+        FROM QuestaoHistoricoUsuario qh
+        WHERE qh.usuario.id = :usuarioId
+        ORDER BY qh.dataResposta DESC
+    """)
     List<Long> findUltimasQuestoesPorUsuario(@Param("usuarioId") Long usuarioId);
 
-    // 2️⃣ Contagem de erros por questão
-    @Query("SELECT qh.questao.id, COUNT(qh) FROM QuestaoHistoricoUsuario qh " +
-            "WHERE qh.usuario.id = :usuarioId AND qh.acertou = false " +
-            "GROUP BY qh.questao.id")
+    // 2️⃣ Contagem de erros por questão (RAW)
+    @Query("""
+        SELECT qh.questao.id, COUNT(qh)
+        FROM QuestaoHistoricoUsuario qh
+        WHERE qh.usuario.id = :usuarioId
+          AND qh.acertou = false
+        GROUP BY qh.questao.id
+    """)
     List<Object[]> countErrosRawPorUsuario(@Param("usuarioId") Long usuarioId);
 
-    // 3️⃣ Default method para Map<questaoId, quantidadeErros>
+    // 3️⃣ Map<questaoId, quantidadeErros>
     default Map<Long, Long> countErrosPorUsuario(Long usuarioId) {
-        List<Object[]> raw = countErrosRawPorUsuario(usuarioId);
-        return raw.stream().collect(
-                java.util.stream.Collectors.toMap(
+        return countErrosRawPorUsuario(usuarioId)
+                .stream()
+                .collect(Collectors.toMap(
                         r -> (Long) r[0],
                         r -> (Long) r[1]
-                )
-        );
+                ));
     }
 
-
-    // 🔹 Buscar IDs das questões que o usuário mais errou (ordenadas pela quantidade de erros)
+    // 4️⃣ Questões mais erradas (ordenadas)
     @Query("""
-        SELECT qh.questao.id 
+        SELECT qh.questao.id
         FROM QuestaoHistoricoUsuario qh
-        WHERE qh.usuario.id = :usuarioId 
+        WHERE qh.usuario.id = :usuarioId
           AND qh.acertou = false
         GROUP BY qh.questao.id
         ORDER BY COUNT(qh) DESC
     """)
-    List<Long> findQuestoesMaisErradas(@Param("usuarioId") Long usuarioId, Pageable pageable);
+    List<Long> findQuestoesMaisErradas(
+            @Param("usuarioId") Long usuarioId,
+            Pageable pageable
+    );
 
-    // (opcional) listar todas que o usuário errou, sem limite
+    // 5️⃣ Todas as questões erradas
     @Query("""
         SELECT DISTINCT qh.questao.id
         FROM QuestaoHistoricoUsuario qh
@@ -59,12 +72,9 @@ public interface QuestaoHistoricoUsuarioRepository extends JpaRepository<Questao
     """)
     List<Long> findTodasQuestoesErradas(@Param("usuarioId") Long usuarioId);
 
-
-
-    // Total de questões resolvidas
+    // 6️⃣ Total de questões resolvidas
     Long countByUsuarioId(Long usuarioId);
 
-    // Total de acertos
+    // 7️⃣ Total de acertos
     Long countByUsuarioIdAndAcertouTrue(Long usuarioId);
-
 }

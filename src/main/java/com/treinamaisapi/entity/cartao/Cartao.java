@@ -17,6 +17,7 @@ public class Cartao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "TEXT")
     private String frente; // pergunta ou conceito
 
     @Column(columnDefinition = "TEXT")

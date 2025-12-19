@@ -22,11 +22,7 @@ public class HistoricoEstudo {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    private TipoAtividade tipoAtividade; // SIMULADO, REVISAO, FLASHCARD
-
-    private Double pontuacaoObtida;
-
-    private Integer acertos;
+    private TipoAtividade tipoAtividade; // SIMULADO, FLASHCARD
 
     @Column(name = "tempo_estudo_minutos")
     private Long tempoEstudoMinutos;
@@ -38,8 +34,8 @@ public class HistoricoEstudo {
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
 
-    @ManyToOne
-    @JoinColumn(name = "simulado_id", nullable = true)
-    private Simulado simulado;
+
+    // referência genérica
+    private Long referenciaId; // simuladoId ou baralhoId
 
 }

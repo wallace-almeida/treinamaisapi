@@ -37,7 +37,7 @@ public class QuestaoHistoricoUsuario {
     @JoinColumn(name = "questao_id", nullable = false)
     private Questao questao;
 
-    private LocalDateTime data;
+    private LocalDateTime dataResposta;
 
     private Boolean acertou;
 
