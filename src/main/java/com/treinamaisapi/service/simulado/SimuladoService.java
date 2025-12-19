@@ -22,6 +22,7 @@ import com.treinamaisapi.entity.questao_historico_usuario.QuestaoHistoricoUsuari
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
 import com.treinamaisapi.entity.simulado.Simulado;
+import com.treinamaisapi.entity.tema.Tema;
 import com.treinamaisapi.entity.usuarios.Usuario;
 
 import com.treinamaisapi.repository.*;
@@ -217,6 +218,14 @@ public class SimuladoService {
             qs.setRespondida(true);
             questaoSimuladoRepository.save(qs);
 
+            // RESGATA O TEMA (MATÉRIA)
+
+            Tema tema = qs.getQuestao()
+                    .getSubcapitulo()
+                    .getCapitulo()
+                    .getTema();
+
+
             // 🔥 Monta o histórico, mas não salva ainda
             QuestaoHistoricoUsuario historicoQuestao = QuestaoHistoricoUsuario.builder()
                     .usuario(simulado.getUsuario())
@@ -225,6 +234,8 @@ public class SimuladoService {
                     .acertou(correta)
                     .simuladoId(simulado.getId())
                     .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
+                    .temaId(tema.getId())
+                    .temaNome(tema.getNome())
                     .build();
 
             historicos.add(historicoQuestao); // adiciona à lista

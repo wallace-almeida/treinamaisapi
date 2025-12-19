@@ -12,9 +12,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name="questao_historico_usuario", indexes = {
-        @Index(name = "idx_usuario_questao", columnList = "usuario_id, questao_id")
-})
+@Table(
+        name = "questao_historico_usuario",
+        indexes = {
+                @Index(name = "idx_usuario_questao", columnList = "usuario_id, questao_id"),
+                @Index(name = "idx_usuario_tema", columnList = "usuario_id, tema_id")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -42,4 +46,10 @@ public class QuestaoHistoricoUsuario {
 
     @Enumerated(EnumType.STRING)
     private NivelDificuldade nivelDificuldade;
+
+    @Column(name = "tema_id", nullable = false)
+    private Long temaId;
+
+    @Column(name = "tema_nome", nullable = false)
+    private String temaNome;
 }
