@@ -51,5 +51,10 @@ public interface QuestaoSimuladoRepository extends JpaRepository<QuestaoSimulado
                 PageRequest.of(0, Math.max(1, quantidade)));
     }
 
+    // ✅ TOTAL REAL DE QUESTÕES NO SIMULADO
+    int countBySimuladoId(Long simuladoId);
+
+    // ✅ TOTAL REAL DE ACERTOS
+    int countBySimuladoIdAndCorretaTrue(Long simuladoId);
 
 }

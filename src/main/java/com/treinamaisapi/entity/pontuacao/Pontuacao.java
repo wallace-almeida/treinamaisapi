@@ -16,11 +16,27 @@ public class Pontuacao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * XP total acumulado do usuário
+     */
+    @Column(nullable = false)
     private Double total = 0.0;
 
-    private Integer nivelAtual = 1;
+    /**
+     * Nível atual calculado com base no total de XP
+     */
+    @Column(nullable = false)
+    private Integer nivelAtual;
 
-    @OneToOne
-    @JoinColumn(name = "usuario_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;
+
+    public static Pontuacao nova(Usuario usuario) {
+        return Pontuacao.builder()
+                .usuario(usuario)
+                .total(0.0)
+                .nivelAtual(1)
+                .build();
+    }
 }

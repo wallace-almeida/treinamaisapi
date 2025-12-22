@@ -27,6 +27,7 @@ import com.treinamaisapi.entity.usuarios.Usuario;
 
 import com.treinamaisapi.repository.*;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
+import com.treinamaisapi.service.gamificacao.interfac.GamificacaoService;
 import com.treinamaisapi.service.simulado.auxiliar.QuestaoBalanceService;
 import com.treinamaisapi.service.simulado.auxiliar.QuestaoFraquezaService;
 import com.treinamaisapi.service.simulado.auxiliar.QuestaoHistoricoService;
@@ -59,6 +60,7 @@ public class SimuladoService {
     private final QuestaoHistoricoService questaoHistoricoService;
     private final QuestaoFraquezaService questaoFraquezaService;
     private final QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository;
+    private final GamificacaoService gamificacaoService;
 
 
     @Transactional
@@ -277,6 +279,10 @@ public class SimuladoService {
         simulado.setDataFinalizacao(fim);
         simuladoRepository.save(simulado);
 
+        // Atribuindo gamificacao
+        gamificacaoService.processarConclusaoSimulado(simulado);
+
+/*
         // Histórico de estudo (fonte oficial de tempo)
         HistoricoEstudo historico = HistoricoEstudo.builder()
                 .tipoAtividade(TipoAtividade.SIMULADO)
@@ -286,7 +292,7 @@ public class SimuladoService {
                 .build();
 
 
-        historicoEstudoRepository.save(historico);
+        historicoEstudoRepository.save(historico);*/
 
         return visualizarResultado(simuladoId);
     }

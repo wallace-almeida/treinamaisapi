@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -77,4 +78,33 @@ public interface QuestaoHistoricoUsuarioRepository
 
     // 7️⃣ Total de acertos
     Long countByUsuarioIdAndAcertouTrue(Long usuarioId);
+
+    @Query("""
+        SELECT COUNT(DISTINCT DATE(q.dataResposta))
+        FROM QuestaoHistoricoUsuario q
+        WHERE q.usuario.id = :usuarioId
+    """)
+    Long countDiasAtivos(Long usuarioId);
+
+    @Query("""
+        SELECT 
+            FUNCTION('DATE', q.dataResposta),
+            SUM(CASE WHEN q.acertou = true THEN 1 ELSE 0 END) * 100.0 / COUNT(q)
+        FROM QuestaoHistoricoUsuario q
+        WHERE q.usuario.id = :usuarioId
+          AND q.dataResposta >= :inicio
+        GROUP BY FUNCTION('DATE', q.dataResposta)
+        ORDER BY FUNCTION('DATE', q.dataResposta)
+    """)
+    List<Object[]> evolucaoAcertos(Long usuarioId, LocalDateTime inicio);
+
+    @Query("""
+        SELECT 
+            q.temaNome,
+            SUM(CASE WHEN q.acertou = true THEN 1 ELSE 0 END) * 100.0 / COUNT(q)
+        FROM QuestaoHistoricoUsuario q
+        WHERE q.usuario.id = :usuarioId
+        GROUP BY q.temaNome
+    """)
+    List<Object[]> desempenhoPorMateria(Long usuarioId);
 }
