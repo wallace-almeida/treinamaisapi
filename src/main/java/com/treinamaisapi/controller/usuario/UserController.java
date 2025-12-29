@@ -1,5 +1,6 @@
 package com.treinamaisapi.controller.usuario;
 
+import com.treinamaisapi.common.dto.avatar.resquest.AtualizarAvatarRequest;
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
 import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import com.treinamaisapi.controller.swagger.UserControllerSwagger;
@@ -40,6 +41,16 @@ public class UserController implements UserControllerSwagger {
         return ResponseEntity.ok(
                 userService.obterProgresso(usuarioId)
         );
+    }
+
+    @PutMapping("/{usuarioId}/avatar")
+    @Override
+    public ResponseEntity<Void> atualizarAvatar(
+            @PathVariable Long usuarioId,
+            @RequestBody AtualizarAvatarRequest request
+    ) {
+        userService.atualizarAvatar(usuarioId, request.avatarNome());
+        return ResponseEntity.noContent().build();
     }
 
 

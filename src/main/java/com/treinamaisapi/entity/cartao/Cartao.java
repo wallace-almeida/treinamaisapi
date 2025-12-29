@@ -1,6 +1,9 @@
 package com.treinamaisapi.entity.cartao;
 
 import com.treinamaisapi.entity.baralho.Baralho;
+import com.treinamaisapi.entity.questoes.Questao;
+import com.treinamaisapi.entity.tema.Tema;
+import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -17,17 +20,39 @@ public class Cartao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(columnDefinition = "TEXT")
-    private String frente; // pergunta ou conceito
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String frente;
 
-    @Column(columnDefinition = "TEXT")
-    private String verso; // resposta ou explicação
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String verso;
 
-    private boolean precisaRevisar;
+    @Column(name = "precisa_revisar")
+    private boolean precisaRevisar = true;
 
     private LocalDateTime ultimaRevisao;
+    private Integer repeticoes = 0;
+    private Double fatorFacilidade = 2.5;
+    private Integer intervaloDias = 1;
 
-    @ManyToOne
+    private LocalDateTime proximaRevisao;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tema_id")
+    private Tema tema;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "baralho_id")
     private Baralho baralho;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
+    private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "questao_id")
+    private Questao questao;
+
+
+
 }

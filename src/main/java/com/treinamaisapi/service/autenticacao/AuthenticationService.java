@@ -27,7 +27,7 @@ public class AuthenticationService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+        var usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
         if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha())) {
@@ -40,9 +40,15 @@ public class AuthenticationService {
         return new AuthResponse(
                 accessToken,
                 refreshToken,
-                new UsuarioResponse(usuario.getId(), usuario.getNome(), usuario.getEmail() )
+                new UsuarioResponse(
+                        usuario.getId(),
+                        usuario.getNome(),
+                        usuario.getEmail(),
+                        usuario.getAvatar()
+                )
         );
     }
+
 
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String username = jwtService.extractUsername(request.getRefreshToken());

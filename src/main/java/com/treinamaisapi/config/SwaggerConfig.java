@@ -1,16 +1,14 @@
 package com.treinamaisapi.config;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
-import io.swagger.v3.oas.models.info.Info;
 
 @Configuration
 public class SwaggerConfig {
@@ -23,26 +21,33 @@ public class SwaggerConfig {
 
     @Bean
     public GroupedOpenApi api() {
-        return GroupedOpenApi
-                .builder()
+        return GroupedOpenApi.builder()
                 .group("odontoApi")
-                .pathsToMatch("/api/**")
+                .pathsToMatch("/api/**", "/auth/**")
                 .build();
     }
 
     @Bean
-    public OpenAPI springShopOpenAPI() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        String serverDate = sdf.format(new Date());
+    public OpenAPI customizeOpenAPI() {
+        final String securitySchemeName = "bearerAuth";
 
         return new OpenAPI()
                 .info(
                         new Info()
-                                .title("ODONTO-API[" + appEnviroment + "]")
-                                .description(appDescription + " - " + serverDate)
+                                .title("ODONTO-API [" + appEnviroment + "]")
+                                .description(appDescription)
                                 .version("1.0")
                                 .contact(contact())
-                );
+                )
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName)) // 🔥 Aplica o Token em todos os endpoints
+                .components(new io.swagger.v3.oas.models.Components()
+                        .addSecuritySchemes(securitySchemeName,
+                                new SecurityScheme()
+                                        .name(securitySchemeName)
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")
+                        ));
     }
 
     private Contact contact() {

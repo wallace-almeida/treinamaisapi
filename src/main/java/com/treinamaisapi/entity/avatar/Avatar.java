@@ -14,12 +14,22 @@ public class Avatar {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    /**
+     * Código lógico do avatar (ex: DEFAULT_1, STUDENT_1)
+     * Usado pelo sistema e frontend
+     */
+    @Column(nullable = false, unique = true)
     private String nome;
 
+    /**
+     * Caminho da imagem (asset ou URL)
+     */
     @Column(nullable = false)
-    private String caminhoImagem; // URL ou caminho do arquivo local
+    private String caminhoImagem;
 
+    /**
+     * Controle administrativo
+     */
     @Column(nullable = false)
     private Boolean ativo = true;
 }

@@ -14,6 +14,8 @@ import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
+import com.treinamaisapi.entity.baralho.Baralho;
+import com.treinamaisapi.entity.cartao.Cartao;
 import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
@@ -61,6 +63,8 @@ public class SimuladoService {
     private final QuestaoFraquezaService questaoFraquezaService;
     private final QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository;
     private final GamificacaoService gamificacaoService;
+    private final CartaoRepository cartaoRepository;
+    private final BaralhoRepository baralhoRepository;
 
 
     @Transactional
@@ -200,23 +204,20 @@ public class SimuladoService {
                 .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
 
         if (simulado.getStatus() != StatusSimulado.EM_ANDAMENTO) {
-            throw new NotFoundException("Simulado já finalizado");
+            throw new IllegalStateException("Simulado já finalizado");
         }
 
-        // 🔒 Garantia de integridade
-        if (simulado.getDataCriacao() == null) {
-            throw new IllegalStateException("Simulado sem data de criação válida");
-        }
+        Long usuarioId = simulado.getUsuario().getId();
+        LocalDateTime agora = LocalDateTime.now();
 
         int acertos = 0;
-        LocalDateTime agora = LocalDateTime.now();
         List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
 
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
 
             QuestaoSimulado qs = questaoSimuladoRepository
                     .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
-                    .orElseThrow(() -> new NotFoundException("Questão não encontrada"));
+                    .orElseThrow(() -> new RuntimeException("Questão não encontrada"));
 
             boolean correta = qs.getQuestao()
                     .getRespostaCorreta()
@@ -240,12 +241,48 @@ public class SimuladoService {
                             .questao(qs.getQuestao())
                             .dataResposta(agora)
                             .acertou(correta)
-                            .simuladoId(simulado.getId())
+                            .simuladoId(simuladoId)
                             .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
                             .temaId(tema.getId())
                             .temaNome(tema.getNome())
                             .build()
             );
+
+
+            // ⭐ Evita criar cartão duplicado se já existir de erro anterior
+            if (!correta && !cartaoRepository.existsByUsuarioIdAndQuestaoId(usuarioId, qs.getQuestao().getId())) {
+
+                // 🎯 Seleciona ou cria automaticamente o baralho do tema
+                Baralho baralho = baralhoRepository.findByUsuarioIdAndTemaId(usuarioId, tema.getId())
+                        .orElseGet(() -> {
+                            Baralho novo = baralhoRepository.save(
+                                    Baralho.builder()
+                                            .titulo("Erros em " + tema.getNome())
+                                            .tema(tema)
+                                            .usuario(simulado.getUsuario())
+                                            .build()
+                            );
+                            return novo;
+                        });
+
+
+                // 🧩 Cria o cartão vinculado ao baralho
+                // Cria o cartão vinculado ao baralho
+                Cartao cartao = Cartao.builder()
+                        .frente(qs.getQuestao().getEnunciado())
+                        .verso(qs.getQuestao().getExplicacao())
+                        .tema(tema)
+                        .usuario(simulado.getUsuario())
+                        .questao(qs.getQuestao())
+                        .baralho(baralho)
+                        .precisaRevisar(true)
+                        .build();
+
+// Apenas salva — sem adicionar manualmente em baralho.getCartoes()
+                cartaoRepository.save(cartao);
+
+            }
+
 
             if (correta) acertos++;
         }
@@ -254,49 +291,36 @@ public class SimuladoService {
 
         double pontuacaoFinal = (acertos * 100.0) / request.getRespostas().size();
 
-        // ⏱️ TEMPO REAL DE ESTUDO (CRIACAO ➜ FINALIZACAO)
+        // ⭐ Calcula o tempo de estudo com mais segurança
         LocalDateTime fim = LocalDateTime.now();
+        long tempoEstudoMinutos = Math.max(0, Duration.between(simulado.getDataCriacao(), fim).toMinutes());
 
-        long tempoEstudoMinutos = Duration
-                .between(simulado.getDataCriacao(), fim)
-                .toMinutes();
-
-        // segurança extra
-        if (tempoEstudoMinutos < 0) {
-            tempoEstudoMinutos = 0;
+        if (simulado.getTempoDuracao() != null) {
+            tempoEstudoMinutos = Math.min(tempoEstudoMinutos, simulado.getTempoDuracao());
         }
 
-        // 🧠 Regra opcional: não deixar passar do tempo planejado
-        if (simulado.getTempoDuracao() != null &&
-                tempoEstudoMinutos > simulado.getTempoDuracao()) {
-
-            tempoEstudoMinutos = simulado.getTempoDuracao();
-        }
-
-        // Finaliza o simulado
+        // Atualiza e salva simulado
         simulado.setPontuacaoFinal(pontuacaoFinal);
         simulado.setStatus(StatusSimulado.FINALIZADO);
         simulado.setDataFinalizacao(fim);
         simuladoRepository.save(simulado);
 
-        // Atribuindo gamificacao
+// 🧩 Gamificação
         gamificacaoService.processarConclusaoSimulado(simulado);
 
-/*
-        // Histórico de estudo (fonte oficial de tempo)
-        HistoricoEstudo historico = HistoricoEstudo.builder()
+// 🆕 Registro no histórico de estudo geral
+        HistoricoEstudo historicoEstudo = HistoricoEstudo.builder()
                 .tipoAtividade(TipoAtividade.SIMULADO)
-                .tempoEstudoMinutos(tempoEstudoMinutos) // ✔ Long
+                .tempoEstudoMinutos(tempoEstudoMinutos)
                 .usuario(simulado.getUsuario())
                 .referenciaId(simulado.getId())
                 .build();
 
-
-        historicoEstudoRepository.save(historico);*/
+        historicoEstudoRepository.save(historicoEstudo);
 
         return visualizarResultado(simuladoId);
-    }
 
+    }
 
 
 

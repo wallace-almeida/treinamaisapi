@@ -11,5 +11,6 @@ public class UsuarioResponse {
     private  Long id;
     private String name;
     private String email;
+    private String avatarCodigo;
 
 }

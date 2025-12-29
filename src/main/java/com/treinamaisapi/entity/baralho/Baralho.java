@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -35,5 +36,8 @@ public class Baralho {
     private Tema tema;
 
     @OneToMany(mappedBy = "baralho", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Cartao> cartoes;
+    @Builder.Default
+    private List<Cartao> cartoes = new ArrayList<>();
+
+
 }
