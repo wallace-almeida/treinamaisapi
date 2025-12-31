@@ -100,6 +100,13 @@ public class CartaoService {
 
         cartaoRepository.save(c);
 
+        gamificacaoService.processarEstudoFlashcard(
+                c.getUsuario(),
+                c.getBaralho().getId(),
+                1,
+                1
+        );
+
         // Contagens atualizadas
         int pendentesHoje = cartaoRepository.contarPendentesHoje(usuarioId);
         int revisadosHoje = cartaoRepository.contarRevisadosHoje(usuarioId);
