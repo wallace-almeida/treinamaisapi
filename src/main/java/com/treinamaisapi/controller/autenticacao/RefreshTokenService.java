@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional
@@ -45,5 +46,15 @@ public class RefreshTokenService {
         token.setRevogado(true);
         repository.save(token);
     }
+
+    public void revogarTodosDoUsuario(Usuario usuario) {
+        List<RefreshToken> tokens = repository
+                .findAllByUsuarioAndRevogadoFalse(usuario);
+
+        tokens.forEach(t -> t.setRevogado(true));
+        repository.saveAll(tokens);
+    }
+
+
 }
 

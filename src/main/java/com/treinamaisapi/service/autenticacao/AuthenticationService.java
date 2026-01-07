@@ -50,6 +50,8 @@ public class AuthenticationService {
         if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha()))
             throw new RuntimeException("Credenciais inválidas");
 
+        refreshTokenService.revogarTodosDoUsuario(usuario);
+
         String accessToken = jwtService.generateAccessToken(usuario.getEmail());
         String refreshToken = jwtService.generateRefreshToken(usuario.getEmail());
 
