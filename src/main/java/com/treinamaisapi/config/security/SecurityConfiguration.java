@@ -15,46 +15,42 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 
-
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-	
-		@Autowired
-	  private JwtAuthenticationFilter jwtAuthFilter;
-	  
-	@Bean
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthFilter;
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(authz -> authz
-            	.requestMatchers("/api/**").permitAll() //se desejar liberar todos endpoints sem autenticacao
-            	.requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/swagger-ui/**").permitAll()
-                .requestMatchers("/v3/api-docs/**").permitAll()
-                .requestMatchers("/v3/api-docs.yaml").permitAll()
-                .requestMatchers("/swagger-ui.html").permitAll()
-                .anyRequest().authenticated()
-            )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .logout(logout -> logout.permitAll()
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers("/auth/login", "/auth/refresh").permitAll()
+                        .requestMatchers("/auth/logout").authenticated()
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-                );
         return http.build();
     }
 
-	private void ignoreCertificates() {
-		try {
-			SSLUtils.turnOffSslChecking();
-		} catch (Exception e) {
-			throw new RuntimeException(e.getMessage());
-		}
-	}
 
-	@Bean
-	public PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
-	}
+    private void ignoreCertificates() {
+        try {
+            SSLUtils.turnOffSslChecking();
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
 }

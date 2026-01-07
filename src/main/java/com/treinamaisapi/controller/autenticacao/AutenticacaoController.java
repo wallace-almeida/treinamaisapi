@@ -19,7 +19,7 @@ public class AutenticacaoController implements AutenticacaoControllerSwagger {
 
     final private AuthenticationService authenticationService;
 
-    public AutenticacaoController(AuthenticationService authenticationService) {
+    public AutenticacaoController(AuthenticationService authenticationService ) {
         this.authenticationService = authenticationService;
 
     }
@@ -34,7 +34,14 @@ public class AutenticacaoController implements AutenticacaoControllerSwagger {
     @PostMapping("/refresh")
     @Override
     public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest request) {
-        return ResponseEntity.ok(authenticationService.refreshToken(request));
+        return ResponseEntity.ok(authenticationService.refresh(request));
+    }
+
+    @PostMapping("/logout")
+    @Override
+    public ResponseEntity<Void> logout(@RequestBody RefreshTokenRequest request) {
+        authenticationService.logout(request.getRefreshToken());
+        return ResponseEntity.noContent().build();
     }
 
 

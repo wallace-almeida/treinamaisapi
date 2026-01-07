@@ -1,16 +1,25 @@
 package com.treinamaisapi.service.autenticacao;
 
+
 import com.treinamaisapi.common.dto.auth.AuthResponse;
 import com.treinamaisapi.common.dto.auth.LoginRequest;
 import com.treinamaisapi.common.dto.auth.RefreshTokenRequest;
-import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
+
+
 import com.treinamaisapi.common.dto.usuario.UsuarioResponse;
+import com.treinamaisapi.controller.autenticacao.RefreshTokenService;
+import com.treinamaisapi.entity.refreshToken.RefreshToken;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.jwt.JwtService;
+
 import com.treinamaisapi.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+import static java.time.LocalDate.now;
 
 
 @Service
@@ -19,55 +28,82 @@ public class AuthenticationService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthenticationService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthenticationService(
+            UsuarioRepository usuarioRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService
+    ) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     public AuthResponse login(LoginRequest request) {
-        var usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-        if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha())) {
-            throw new RuntimeException("Senha incorreta");
-        }
+        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Credenciais inválidas"));
+
+        if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha()))
+            throw new RuntimeException("Credenciais inválidas");
 
         String accessToken = jwtService.generateAccessToken(usuario.getEmail());
         String refreshToken = jwtService.generateRefreshToken(usuario.getEmail());
 
+        refreshTokenService.criar(
+                refreshToken,
+                usuario,
+                Duration.ofDays(7)
+        );
+
         return new AuthResponse(
                 accessToken,
                 refreshToken,
-                new UsuarioResponse(
-                        usuario.getId(),
-                        usuario.getNome(),
-                        usuario.getEmail(),
-                        usuario.getAvatar()
-                )
+                UsuarioResponse.from(usuario)
         );
+
     }
 
+    public AuthResponse refresh(RefreshTokenRequest request) {
 
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String username = jwtService.extractUsername(request.getRefreshToken());
+        // 1️⃣ Valida o refresh token no banco
+        RefreshToken refresh = refreshTokenService.validar(request.getRefreshToken());
 
-        if (!jwtService.isRefreshToken(request.getRefreshToken())) {
-            throw new RuntimeException("O token enviado não é um refresh token");
-        }
+        // 2️⃣ Usa o usuário VINDO DO BANCO (fonte da verdade)
+        Usuario usuario = refresh.getUsuario();
+        String username = usuario.getEmail();
 
-        if (!jwtService.isTokenValid(request.getRefreshToken(), username)) {
-            throw new RuntimeException("Refresh token inválido ou expirado");
-        }
+        // 3️⃣ Revoga o refresh token antigo (rotation)
+        refreshTokenService.revogar(refresh);
 
-        String newAccessToken = jwtService.generateAccessToken(username);
+        // 4️⃣ Cria novo refresh token
+        String novoRefresh = jwtService.generateRefreshToken(username);
+        refreshTokenService.criar(
+                novoRefresh,
+                usuario,
+                Duration.ofDays(7)
+        );
 
+        // 5️⃣ Cria novo access token
+        String novoAccess = jwtService.generateAccessToken(username);
+
+        // 6️⃣ Retorna os novos tokens
         return new AuthResponse(
-                newAccessToken,
-                request.getRefreshToken(), // opcionalmente você pode gerar um novo refresh token
+                novoAccess,
+                novoRefresh,
                 null
         );
     }
+
+
+    public void logout(String refreshToken) {
+        RefreshToken refresh = refreshTokenService.validar(refreshToken);
+        refreshTokenService.revogar(refresh);
+    }
+
+
 }
 
