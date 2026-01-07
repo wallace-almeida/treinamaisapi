@@ -23,6 +23,9 @@ public class FlashCardDashController implements FlashCardDashControllerSwagger {
     @Override
     public ResponseEntity<FlashcardsDashboardResponse> dashboard(
             @AuthenticationPrincipal Usuario usuario) {
+        if (usuario == null) {
+            return ResponseEntity.status(401).build();
+        }
         return ResponseEntity.ok(
                 flashCardDashBoardService.dashboard(usuario.getId())
         );

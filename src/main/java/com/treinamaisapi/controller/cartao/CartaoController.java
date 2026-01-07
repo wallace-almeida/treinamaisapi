@@ -24,6 +24,9 @@ public class CartaoController implements CartaoControllerSwagger {
     public ResponseEntity<CartaoResponse> criar(
             @AuthenticationPrincipal Usuario user,
             @RequestBody CartaoRequest req) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         return ResponseEntity.ok(service.criarManual(user.getId(), req));
     }
 
@@ -31,8 +34,10 @@ public class CartaoController implements CartaoControllerSwagger {
     @GetMapping("/estudo/proximo")
     @Override
     public ResponseEntity<FlashcardEstudoResponse> proximo(
-            @AuthenticationPrincipal Usuario user
-    ) {
+            @AuthenticationPrincipal Usuario user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         return ResponseEntity.ok(service.buscarProximoParaEstudo(user.getId()));
     }
 
@@ -45,6 +50,7 @@ public class CartaoController implements CartaoControllerSwagger {
             @PathVariable Long id,
             @RequestParam int qualidade
     ) {
+
         return ResponseEntity.ok(service.revisar(user.getId(), id, qualidade));
     }
 
