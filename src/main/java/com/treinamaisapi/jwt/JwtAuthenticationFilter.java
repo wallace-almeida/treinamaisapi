@@ -24,6 +24,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final CustomUserDetailsService userDetailsService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.contains("/auth/login")
+                || path.contains("/auth/refresh");
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -40,7 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt = authHeader.substring(7);
 
         try {
-            // ⛔ Nunca autentica refresh token
             if (!jwtService.isAccessToken(jwt)) {
                 filterChain.doFilter(request, response);
                 return;
@@ -71,11 +77,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (io.jsonwebtoken.ExpiredJwtException ex) {
-            // Access token expirado → segue sem autenticar
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("""
+                {
+                  "status": 401,
+                  "error": "AUTH_ERROR",
+                  "message": "Token expirado"
+                }
+                """);
+            return;
         }
 
         filterChain.doFilter(request, response);
     }
-
-
 }

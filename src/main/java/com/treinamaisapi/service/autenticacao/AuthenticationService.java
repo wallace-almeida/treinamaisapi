@@ -7,12 +7,17 @@ import com.treinamaisapi.common.dto.auth.RefreshTokenRequest;
 
 
 import com.treinamaisapi.common.dto.usuario.UsuarioResponse;
+
+
+
+import com.treinamaisapi.common.exception.InvalidCredentialsException;
 import com.treinamaisapi.controller.autenticacao.RefreshTokenService;
 import com.treinamaisapi.entity.refreshToken.RefreshToken;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.jwt.JwtService;
 
 import com.treinamaisapi.repository.UsuarioRepository;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -45,10 +50,10 @@ public class AuthenticationService {
     public AuthResponse login(LoginRequest request) {
 
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Credenciais inválidas"));
+                .orElseThrow(() -> new InvalidCredentialsException("Credenciais inválidas"));
 
         if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha()))
-            throw new RuntimeException("Credenciais inválidas");
+            throw new InvalidCredentialsException("Credenciais inválidas");
 
         refreshTokenService.revogarTodosDoUsuario(usuario);
 

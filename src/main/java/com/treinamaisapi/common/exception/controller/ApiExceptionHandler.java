@@ -2,6 +2,7 @@ package com.treinamaisapi.common.exception.controller;
 
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.ErrorResponse;
+import com.treinamaisapi.common.exception.InvalidCredentialsException;
 import com.treinamaisapi.common.exception.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -97,4 +98,24 @@ public class ApiExceptionHandler {
 
         return ResponseEntity.internalServerError().body(error);
     }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException ex,
+            HttpServletRequest request
+    ) {
+
+        var traceId = getTraceId();
+
+        var error = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Usuario ou senha invalido",
+                ex.getMessage(),
+                request.getRequestURI(),
+                traceId
+        );
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
 }
