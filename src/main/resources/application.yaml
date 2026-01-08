@@ -13,18 +13,18 @@ spring:
   mail:
     host: smtp-relay.brevo.com
     port: 587
-    username: 9f8ac3001@smtp-brevo.com   # seu SMTP username
-    password: ${BREVO_SMTP_PASSWORD}    # variável de ambiente com sua chave SMTP
+    username: 9f8ac3001@smtp-brevo.com
+    password: ${BREVO_SMTP_PASSWORD}
     protocol: smtp
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
-      mail.smtp.connectiontimeout: 5000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
+      mail.smtp.starttls.required: true
+      mail.smtp.ssl.trust: smtp-relay.brevo.com
+
     brevo:
       mail:
-        from: 9f8ac3001@smtp-brevo.com
+        from: treinamaisapp@gmail.com
 
   jpa:
     #database-platform: org.hibernate.dialect.Oracle10gDialect

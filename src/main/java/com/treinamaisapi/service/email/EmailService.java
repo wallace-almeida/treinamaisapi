@@ -11,8 +11,10 @@ public class EmailService {
     private final JavaMailSender mailSender;
     private final String remetente;
 
-    public EmailService(JavaMailSender mailSender,
-                        @Value("${spring.brevo.mail.from}") String remetente) {
+    public EmailService(
+            JavaMailSender mailSender,
+            @Value("${spring.mail.brevo.mail.from}") String remetente
+    ) {
         this.mailSender = mailSender;
         this.remetente = remetente;
     }
@@ -25,11 +27,16 @@ public class EmailService {
         message.setText(texto);
 
         mailSender.send(message);
-        System.out.println("📧 [EMAIL] Enviado para: " + destinatario);
+
+        System.out.println("📧 Email enviado para: " + destinatario);
     }
 
-    // Método de teste rápido
     public void testarEnvio() {
-        enviarEmail("odontotimee@gmail.com", "Teste Brevo", "Este é um teste de envio via Brevo SMTP!");
+        enviarEmail(
+                "odontotimee@gmail.com",
+                "Teste Brevo SMTP",
+                "Email enviado com sucesso usando Brevo + Spring Boot!"
+        );
     }
 }
+
