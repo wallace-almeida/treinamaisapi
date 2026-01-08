@@ -9,6 +9,23 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
       fail-on-ignored-properties: true
+
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: 9f8ac3001@smtp-brevo.com   # seu SMTP username
+    password: ${BREVO_SMTP_PASSWORD}    # variável de ambiente com sua chave SMTP
+    protocol: smtp
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+    brevo:
+      mail:
+        from: 9f8ac3001@smtp-brevo.com
+
   jpa:
     #database-platform: org.hibernate.dialect.Oracle10gDialect
     hibernate:
