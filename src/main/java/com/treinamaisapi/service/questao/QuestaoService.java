@@ -2,6 +2,7 @@ package com.treinamaisapi.service.questao;
 
 import com.treinamaisapi.common.dto.questao.request.QuestaoRequest;
 import com.treinamaisapi.common.dto.questao.response.QuestaoResponse;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.repository.QuestaoRepository;
 import com.treinamaisapi.repository.SubCapituloRepository;
@@ -22,7 +23,7 @@ public class QuestaoService {
 
         for (QuestaoRequest req : requests) {
             var subcapitulo = subcapituloRepository.findById(req.getSubcapituloId())
-                    .orElseThrow(() -> new IllegalArgumentException("Subcapítulo não encontrado"));
+                    .orElseThrow(() -> new NotFoundException("Subcapítulo não encontrado"));
 
             var questao = Questao.builder()
                     .enunciado(req.getEnunciado())

@@ -91,8 +91,11 @@ public class SimuladoService {
         );
 
         if (questoesFiltradas.isEmpty()) {
-            throw new RuntimeException("Não foram encontradas questões com os filtros especificados.");
+            throw new BusinessException(
+                    "Não encontramos questões com os filtros selecionados. Tente ajustar os critérios."
+            );
         }
+
 
         // ✅ Remove duplicadas logo no início
         questoesFiltradas = questoesFiltradas.stream()
@@ -138,8 +141,11 @@ public class SimuladoService {
         // ------------------------------------------------------------------
 
         if (questoesSelecionadas.isEmpty()) {
-            throw new RuntimeException("Nenhuma questão disponível após filtragem inteligente.");
+            throw new BusinessException(
+                    "Não foi possível montar o simulado com os critérios selecionados."
+            );
         }
+
 
         // 7) Cria simulado
         Simulado simulado = Simulado.builder()
@@ -183,12 +189,17 @@ public class SimuladoService {
 
     @Transactional(readOnly = true)
     public SimuladoExecucaoResponse buscarSimuladoAtivo(Long usuarioId) {
-        Simulado simulado = simuladoRepository.findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO).orElseThrow(() -> new RuntimeException("Nenhum simulado em andamento encontrado"));
 
-        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
-
-        return SimuladoExecucaoResponse.fromEntity(simulado, questoes);
+        return simuladoRepository
+                .findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
+                .map(simulado -> {
+                    List<QuestaoSimulado> questoes =
+                            questaoSimuladoRepository.findBySimuladoId(simulado.getId());
+                    return SimuladoExecucaoResponse.fromEntity(simulado, questoes);
+                })
+                .orElse(null); // front trata como "não há simulado ativo"
     }
+
 
 
     @Transactional(readOnly = true)
@@ -201,10 +212,10 @@ public class SimuladoService {
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
 
         Simulado simulado = simuladoRepository.findById(simuladoId)
-                .orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Simulado não encontrado"));
 
         if (simulado.getStatus() != StatusSimulado.EM_ANDAMENTO) {
-            throw new IllegalStateException("Simulado já finalizado");
+            throw new BusinessException("Simulado já finalizado");
         }
 
         Long usuarioId = simulado.getUsuario().getId();
@@ -217,7 +228,7 @@ public class SimuladoService {
 
             QuestaoSimulado qs = questaoSimuladoRepository
                     .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
-                    .orElseThrow(() -> new RuntimeException("Questão não encontrada"));
+                    .orElseThrow(() -> new NotFoundException("Questão não encontrada"));
 
             boolean correta = qs.getQuestao()
                     .getRespostaCorreta()
@@ -326,7 +337,7 @@ public class SimuladoService {
 
     @Transactional(readOnly = true)
     public ResultadoSimuladoResponse visualizarResultado(Long simuladoId) {
-        Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new RuntimeException("Simulado não encontrado"));
+        Simulado simulado = simuladoRepository.findById(simuladoId).orElseThrow(() -> new NotFoundException("Simulado não encontrado"));
 
         if (!StatusSimulado.FINALIZADO.equals(simulado.getStatus())) {
             throw new BusinessException("O resultado só pode ser visualizado após o simulado ser finalizado.");

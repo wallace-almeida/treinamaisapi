@@ -2,6 +2,8 @@ package com.treinamaisapi.service.compra.concurso;
 
 import com.treinamaisapi.common.dto.concurso.request.ConcursoRequest;
 import com.treinamaisapi.common.dto.concurso.response.ConcursoResponse;
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.Concurso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.repository.ConcursoRepository;
@@ -21,7 +23,7 @@ public class ConcursoService {
     @Transactional
     public ConcursoResponse criarConcurso(ConcursoRequest request) {
         concursoRepository.findByNomeIgnoreCase(request.getNome()).ifPresent(c -> {
-            throw new IllegalStateException("Já existe um concurso com esse nome.");
+            throw new BusinessException( "Já existe um concurso com esse nome.");
         });
 
         Concurso concurso = Concurso.builder()
@@ -48,7 +50,7 @@ public class ConcursoService {
     @Transactional(readOnly = true)
     public ConcursoResponse buscarPorId(Long id) {
         Concurso concurso = concursoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Concurso não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Concurso não encontrado."));
 
         return ConcursoResponse.builder()
                 .id(concurso.getId())

@@ -4,6 +4,7 @@ import com.treinamaisapi.common.dto.questao.request.CapituloRequest;
 import com.treinamaisapi.common.dto.questao.request.TemaRequest;
 import com.treinamaisapi.common.dto.questao.response.CapituloResponse;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.tema.Tema;
 import com.treinamaisapi.repository.CapituloRepository;
@@ -23,7 +24,7 @@ public class CapituloService {
 
     public CapituloResponse criar(CapituloRequest request) {
         var tema = temaRepository.findById(
-                request.getTemaId()).orElseThrow(() -> new IllegalArgumentException("Tema não encontrado"));
+                request.getTemaId()).orElseThrow(() -> new NotFoundException("Tema não encontrado"));
 
         var capitulo = Capitulo.builder().nome(request.getNome()).tema(tema).build();
         capituloRepository.save(capitulo);

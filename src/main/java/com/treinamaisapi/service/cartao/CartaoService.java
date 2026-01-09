@@ -9,6 +9,8 @@ import com.treinamaisapi.common.dto.flashcard.cartao.RevisaoPendenteResponse;
 import com.treinamaisapi.common.dto.questao.request.CapituloRequest;
 import com.treinamaisapi.common.dto.questao.response.CapituloResponse;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.baralho.Baralho;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.cartao.Cartao;
@@ -43,11 +45,15 @@ public class CartaoService {
 
     public CartaoResponse criarManual(Long usuarioId, CartaoRequest req) {
         Tema tema = temaRepository.findById(req.temaId())
-                .orElseThrow(() -> new RuntimeException("Tema não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Tema não encontrado"));
 
-        Baralho baralho = req.baralhoId() != null ?
-                baralhoRepository.findById(req.baralhoId()).orElse(null)
-                : null;
+        Baralho baralho = null;
+
+        if (req.baralhoId() != null) {
+            baralho = baralhoRepository.findById(req.baralhoId())
+                    .orElseThrow(() -> new NotFoundException("Baralho não encontrado"));
+        }
+
 
         Cartao cartao = Cartao.builder()
                 .frente(req.frente())
@@ -68,7 +74,11 @@ public class CartaoService {
     public FlashcardEstudoResponse revisar(Long usuarioId, Long cartaoId, int qualidade) {
 
         Cartao c = cartaoRepository.findByUsuarioIdAndId(usuarioId, cartaoId)
-                .orElseThrow(() -> new RuntimeException("Cartão não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Cartão não encontrado"));
+
+        if (c.getBaralho() == null) {
+            throw new BusinessException("Este cartão não está associado a um baralho");
+        }
 
         LocalDateTime agora = LocalDateTime.now();
 

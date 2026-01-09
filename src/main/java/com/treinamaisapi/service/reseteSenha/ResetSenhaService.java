@@ -1,5 +1,7 @@
 package com.treinamaisapi.service.reseteSenha;
 
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.resetSenha.ResetSenhaToken;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.ResetSenhaTokenRepository;
@@ -31,7 +33,7 @@ public class ResetSenhaService {
     // 1️⃣ Solicitar código
     public void solicitarCodigo(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
         // Gera código de 6 dígitos
         String codigo = String.format("%06d", new Random().nextInt(999999));
@@ -62,10 +64,10 @@ public class ResetSenhaService {
     public String confirmarCodigo(String email, String codigo) {
         ResetSenhaToken reset = tokenRepository
                 .findByUsuarioEmailAndCodigoAndUsadoFalse(email, codigo)
-                .orElseThrow(() -> new RuntimeException("Código inválido"));
+                .orElseThrow(() -> new BusinessException("Código inválido"));
 
         if (reset.getExpiracao().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Código expirado");
+            throw new BusinessException("Código expirado");
         }
 
         return reset.getToken();
@@ -75,7 +77,7 @@ public class ResetSenhaService {
     public void redefinirSenha(String token, String novaSenha) {
         ResetSenhaToken reset = tokenRepository
                 .findByTokenAndUsadoFalse(token)
-                .orElseThrow(() -> new RuntimeException("Token inválido"));
+                .orElseThrow(() -> new BusinessException("Token inválido"));
 
         Usuario usuario = reset.getUsuario();
         usuario.setSenha(passwordEncoder.encode(novaSenha));

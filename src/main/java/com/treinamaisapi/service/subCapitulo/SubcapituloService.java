@@ -2,6 +2,7 @@ package com.treinamaisapi.service.subCapitulo;
 
 import com.treinamaisapi.common.dto.questao.request.SubcapituloRequest;
 import com.treinamaisapi.common.dto.questao.response.SubcapituloResponse;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.subCapitulo.Subcapitulo;
 import com.treinamaisapi.repository.CapituloRepository;
 import com.treinamaisapi.repository.SubCapituloRepository;
@@ -18,7 +19,7 @@ public class SubcapituloService {
 
     public SubcapituloResponse criar(SubcapituloRequest request) {
         var capitulo = capituloRepository.findById(request.getCapituloId())
-                .orElseThrow(() -> new IllegalArgumentException("Capítulo não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Capítulo não encontrado"));
         var subcapitulo = Subcapitulo.builder().nome(request.getNome()).capitulo(capitulo).build();
         subcapituloRepository.save(subcapitulo);
         return new SubcapituloResponse(subcapitulo.getId(), subcapitulo.getNome(),

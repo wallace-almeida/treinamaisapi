@@ -28,7 +28,7 @@ public class EmailService {
 
         mailSender.send(message);
 
-        System.out.println("📧 Email enviado para: " + destinatario);
+     //   System.out.println("📧 Email enviado para: " + destinatario);
     }
 
     public void testarEnvio() {

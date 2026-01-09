@@ -2,6 +2,8 @@ package com.treinamaisapi.service.compra.pacote;
 
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.Concurso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -29,16 +31,13 @@ public class PacoteService {
     @Transactional
     public PacoteResponse criarPacote(PacoteRequest request) {
         Concurso concurso = concursoRepository.findById(request.getConcursoId())
-                .orElseThrow(() -> new IllegalArgumentException("Concurso não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Concurso não encontrado."));
 
         if (pacoteRepository.existsByNomeAndConcursoId(request.getNome(), concurso.getId())) {
-            throw new IllegalStateException("Já existe um pacote com esse nome neste concurso.");
+            throw new BusinessException("Já existe um pacote com esse nome neste concurso.");
         }
 
-        List<Tema> temas = temaRepository.findAllById(request.getTemaIds());
-        if (temas.isEmpty()) {
-            throw new IllegalArgumentException("Nenhum tema válido foi informado.");
-        }
+        List<Tema> temas = validarTemas(request.getTemaIds());
 
         Pacote pacote = Pacote.builder()
                 .nome(request.getNome())
@@ -64,10 +63,25 @@ public class PacoteService {
                 .build();
     }
 
+    private List<Tema> validarTemas(List<Long> temaIds) {
+        List<Tema> temas = temaRepository.findAllById(temaIds);
+
+        if (temas.size() != temaIds.size()) {
+            throw new BusinessException("Um ou mais temas informados são inválidos.");
+        }
+        return temas;
+    }
+
     @Transactional
     public PacoteResponse atualizarPacote(Long id, PacoteRequest request) {
         Pacote pacote = pacoteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pacote não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Pacote não encontrado"));
+
+        if (request.getNome() != null &&
+                pacoteRepository.existsByNomeAndConcursoId(request.getNome(), pacote.getConcurso().getId()) &&
+                !request.getNome().equalsIgnoreCase(pacote.getNome())) {
+            throw new BusinessException("Já existe outro pacote com esse nome neste concurso.");
+        }
 
         // Atualiza somente se o valor for fornecido
         if (request.getNome() != null) {
@@ -108,7 +122,7 @@ public class PacoteService {
     @Transactional(readOnly = true)
     public Integer buscarVersaoPorId(Long pacoteId) {
         Pacote pacote = pacoteRepository.findById(pacoteId)
-                .orElseThrow(() -> new RuntimeException("Pacote não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Pacote não encontrado"));
         return pacote.getVersao();
     }
 
