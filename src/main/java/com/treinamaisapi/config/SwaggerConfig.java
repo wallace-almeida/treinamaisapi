@@ -22,7 +22,7 @@ public class SwaggerConfig {
     @Bean
     public GroupedOpenApi api() {
         return GroupedOpenApi.builder()
-                .group("odontoApi")
+                .group("treinaMaisApi")
                 .pathsToMatch("/api/**", "/auth/**")
                 .build();
     }
@@ -34,7 +34,7 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .info(
                         new Info()
-                                .title("ODONTO-API [" + appEnviroment + "]")
+                                .title("TREINA-MAIS-API [" + appEnviroment + "]")
                                 .description(appDescription)
                                 .version("1.0")
                                 .contact(contact())
@@ -52,8 +52,7 @@ public class SwaggerConfig {
 
     private Contact contact() {
         return new Contact()
-                .email("odontotimee@gmail.com")
-                .name("Odonto Time")
-                .url("");
+                .email("treinamaisapp@gmail.com")
+                .name("Treina Mais");
     }
 }

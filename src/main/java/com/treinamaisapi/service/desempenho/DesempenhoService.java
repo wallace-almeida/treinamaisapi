@@ -3,6 +3,7 @@ package com.treinamaisapi.service.desempenho;
 import com.treinamaisapi.common.dto.desempenho.DesempenhoPorMateriaResponse;
 import com.treinamaisapi.common.dto.desempenho.DesempenhoUsuarioResponse;
 import com.treinamaisapi.common.dto.desempenho.EvolucaoAcertosResponse;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.pontuacao.Pontuacao;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.HistoricoEstudoRepository;
@@ -27,7 +28,7 @@ public class DesempenhoService {
     public DesempenhoUsuarioResponse obterDesempenho(Long usuarioId) {
 
         Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
         // 🔹 Pontuação
         Pontuacao pontuacao = pontuacaoRepository

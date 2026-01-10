@@ -3,6 +3,7 @@ package com.treinamaisapi.service.tema;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.questao.request.*;
 import com.treinamaisapi.common.dto.questao.response.TemaResponse;
+import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.subCapitulo.Subcapitulo;
@@ -35,7 +36,7 @@ public class TemaService {
     public TemaResponse criar (TemaRequest request) {
         // validação simples: não criar duplicado
         if (temaRepository.existsByNomeIgnoreCase(request.getNome())) {
-            throw new IllegalArgumentException("Tema já cadastrado: " + request.getNome());
+            throw new BusinessException("Tema já cadastrado: " + request.getNome());
         }
         var tema = Tema.builder().nome(request.getNome()).build();
         temaRepository.save(tema);

@@ -11,6 +11,7 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,5 +32,7 @@ public interface SimuladoRepository extends JpaRepository<Simulado, Long>, JpaSp
           AND s.dataFinalizacao IS NOT NULL
     """)
     Long sumTempoEstudoByUsuario(@Param("usuarioId") Long usuarioId);
+
+    List<Simulado> findByUsuarioIdAndDataCriacaoAfterOrderByDataCriacaoDesc(Long usuarioId, LocalDateTime data);
 
 }

@@ -2,6 +2,8 @@ package com.treinamaisapi.service.compra.pacote;
 
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
+import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.usuarios.Usuario;
@@ -26,8 +28,8 @@ public class PacoteCompradoService {
 
     @Transactional
     public CompraResponse comprarPacote(Long usuarioId, Long pacoteId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
-        Pacote pacote = pacoteRepository.findById(pacoteId).orElseThrow(() -> new IllegalArgumentException("Pacote não encontrado."));
+        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
+        Pacote pacote = pacoteRepository.findById(pacoteId).orElseThrow(() -> new BusinessException("Pacote não encontrado."));
 
         // Verifica se o usuário já tem um pacote ativo e não expirado
 
@@ -37,7 +39,7 @@ public class PacoteCompradoService {
                 .anyMatch(c -> c.getPacote().getId().equals(pacote.getId()));
 
         if (jaComprado) {
-            throw new IllegalStateException("Usuário já possui esse pacote ativo");
+            throw new BusinessException("Usuário já possui esse pacote ativo");
         }
 
         LocalDateTime dataExpiracao = LocalDateTime.now().plusDays(pacote.getDuracaoDias());

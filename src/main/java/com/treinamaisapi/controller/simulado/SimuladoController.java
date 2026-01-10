@@ -5,7 +5,7 @@ import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
-import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.SimuladoResumoResponse;
 import com.treinamaisapi.controller.swagger.SimuladoControllerSwagger;
 import com.treinamaisapi.service.simulado.SimuladoService;
 import lombok.RequiredArgsConstructor;
@@ -38,16 +38,19 @@ public class SimuladoController implements SimuladoControllerSwagger {
 
     @GetMapping("/usuario/{usuarioId}/ativo")
     @Override
-    public SimuladoExecucaoResponse buscarSimuladoAtivo(@PathVariable Long usuarioId) {
-        return simuladoService.buscarSimuladoAtivo(usuarioId);
+    public ResponseEntity<SimuladoExecucaoResponse> buscarSimuladoAtivo(@PathVariable Long usuarioId) {
+        SimuladoExecucaoResponse simulado = simuladoService.buscarSimuladoAtivo(usuarioId);
+        if (simulado == null) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(simulado);
     }
 
     // Lista histórico / todos os simulados do usuário
-    @GetMapping("/usuario/{usuarioId}")
+    @GetMapping("/usuario/{usuarioId}/resumo")
     @Override
-    public List<SimuladoResponse> listarSimuladosPorUsuario(@PathVariable Long usuarioId) {
-        return simuladoService.listarSimuladosPorUsuario(usuarioId);
+    public List<SimuladoResumoResponse> listarResumoSimulados(@PathVariable Long usuarioId) {
+        return simuladoService.listarResumoSimulados(usuarioId);
     }
+
 
     // Envia respostas e finaliza
     @PostMapping("/{simuladoId}/responder")

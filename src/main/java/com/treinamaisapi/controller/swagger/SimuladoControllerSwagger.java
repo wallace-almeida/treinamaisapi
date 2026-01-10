@@ -11,6 +11,7 @@ import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
 import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.SimuladoResumoResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,12 +29,13 @@ public interface SimuladoControllerSwagger {
             @RequestBody CriarSimuladoRequest request
     );
 
+
     @GetMapping("/usuario/{usuarioId}/ativo")
-    SimuladoExecucaoResponse buscarSimuladoAtivo(@PathVariable Long usuarioId);
+    ResponseEntity<SimuladoExecucaoResponse> buscarSimuladoAtivo(@PathVariable Long usuarioId);
 
     // Lista histórico / todos os simulados do usuário
-    @GetMapping("/usuario/{usuarioId}")
-    List<SimuladoResponse> listarSimuladosPorUsuario(@PathVariable Long usuarioId);
+    @GetMapping("/usuario/{usuarioId}/resumo")
+    List<SimuladoResumoResponse> listarResumoSimulados(@PathVariable Long usuarioId);
 
     // Envia respostas e finaliza
     @PostMapping("/{simuladoId}/responder")

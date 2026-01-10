@@ -8,10 +8,7 @@ import com.treinamaisapi.common.dto.simulado.filtro.TemaFiltroDTO;
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.request.RespostaQuestaoSimulado;
 import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
-import com.treinamaisapi.common.dto.simulado.response.FeedbackQuestaoResponse;
-import com.treinamaisapi.common.dto.simulado.response.ResultadoSimuladoResponse;
-import com.treinamaisapi.common.dto.simulado.response.SimuladoExecucaoResponse;
-import com.treinamaisapi.common.dto.simulado.response.SimuladoResponse;
+import com.treinamaisapi.common.dto.simulado.response.*;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.baralho.Baralho;
@@ -195,18 +192,37 @@ public class SimuladoService {
                 .map(simulado -> {
                     List<QuestaoSimulado> questoes =
                             questaoSimuladoRepository.findBySimuladoId(simulado.getId());
-                    return SimuladoExecucaoResponse.fromEntity(simulado, questoes);
+
+                    // Ajuste do tempo restante
+                    Integer tempoDuracao = simulado.getTempoDuracao();
+                    if (tempoDuracao != null) {
+                        long minutosPassados = Duration.between(simulado.getDataCriacao(), LocalDateTime.now()).toMinutes();
+                        tempoDuracao = (int) Math.max(0, tempoDuracao - minutosPassados);
+                    }
+
+                    SimuladoExecucaoResponse response = SimuladoExecucaoResponse.fromEntity(simulado, questoes);
+                    response.setTempoDuracao(tempoDuracao); // sobrescreve com o tempo restante
+                    return response;
                 })
-                .orElse(null); // front trata como "não há simulado ativo"
+                .orElse(null);
     }
 
 
 
     @Transactional(readOnly = true)
-    public List<SimuladoResponse> listarSimuladosPorUsuario(Long usuarioId) {
-        List<Simulado> sims = simuladoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuarioId);
-        return sims.stream().map(s -> SimuladoResponse.fromEntity(s, questaoSimuladoRepository.findBySimuladoId(s.getId()))).collect(Collectors.toList());
+    public List<SimuladoResumoResponse> listarResumoSimulados(Long usuarioId) {
+        LocalDateTime trintaDiasAtras = LocalDateTime.now().minusDays(30);
+
+        return simuladoRepository
+                .findByUsuarioIdAndDataCriacaoAfterOrderByDataCriacaoDesc(usuarioId, trintaDiasAtras)
+                .stream()
+                .map(SimuladoResumoResponse::fromEntity)
+                .toList();
     }
+
+
+
+
 
     @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {

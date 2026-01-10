@@ -4,6 +4,7 @@ package com.treinamaisapi.service.usuario;
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
 import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import com.treinamaisapi.common.exception.BusinessException;
+import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.enums.AvatarPermitido;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.HistoricoEstudoRepository;
@@ -40,7 +41,7 @@ public class UserService {
 
     public void criarUsuario(UsuarioRequest request) {
         if (usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("E-mail já cadastrado");
+            throw new BusinessException("E-mail já cadastrado");
         }
 
         Usuario usuario = Usuario.builder()
@@ -87,7 +88,7 @@ public class UserService {
 
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() ->
-                        new RuntimeException("Usuário não encontrado")
+                        new NotFoundException("Usuário não encontrado")
                 );
 
         // Validação simples (opcional, mas recomendada)
