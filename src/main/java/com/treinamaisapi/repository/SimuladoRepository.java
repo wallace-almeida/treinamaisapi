@@ -33,6 +33,6 @@ public interface SimuladoRepository extends JpaRepository<Simulado, Long>, JpaSp
     """)
     Long sumTempoEstudoByUsuario(@Param("usuarioId") Long usuarioId);
 
-    List<Simulado> findByUsuarioIdAndDataCriacaoAfterOrderByDataCriacaoDesc(Long usuarioId, LocalDateTime data);
+    List<Simulado> findByUsuarioIdAndStatusAndDataCriacaoAfterOrderByDataCriacaoDesc(Long usuarioId,StatusSimulado status, LocalDateTime data);
 
 }

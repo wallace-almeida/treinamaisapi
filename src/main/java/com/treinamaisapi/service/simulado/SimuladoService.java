@@ -1,6 +1,7 @@
 package com.treinamaisapi.service.simulado;
 
 
+import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.simulado.filtro.CapituloFiltroDTO;
 import com.treinamaisapi.common.dto.simulado.filtro.PacoteFiltroSimuladoDTO;
 import com.treinamaisapi.common.dto.simulado.filtro.SubcapituloFiltroDTO;
@@ -71,13 +72,14 @@ public class SimuladoService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
 
-        // 2) Valida compra
-        boolean possuiAcesso = pacoteCompradoService.listarComprasAtivas(usuarioId)
-                .stream().anyMatch(c -> c.getConcursoId().equals(request.getConcursoId()));
+        // 2) Busca pacote ativo via DTO
+        PacoteCompradoComUsuarioDTO pacoteDTO = pacoteCompradoService.listarComprasAtivas(usuarioId).stream()
+                .filter(c -> c.getConcursoId().equals(request.getConcursoId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Usuário não possui acesso a este concurso."));
 
-        if (!possuiAcesso) {
-            throw new BusinessException("Usuário não possui acesso a este concurso.");
-        }
+        // 3) Define título automático do simulado baseado no pacote
+        String tituloSimulado = "Simulado " + pacoteDTO.getNomePacote();
 
         // 3) Define quantidade de questões
         int quantidadeTotal = request.getQuantidadeQuestoes() == null ? 10 : request.getQuantidadeQuestoes();
@@ -146,6 +148,7 @@ public class SimuladoService {
 
         // 7) Cria simulado
         Simulado simulado = Simulado.builder()
+                .titulo(tituloSimulado)
                 .usuario(usuario)
                 .quantidadeQuestoes(questoesSelecionadas.size())
                 .tempoDuracao(request.getTempoDuracao())
@@ -184,49 +187,24 @@ public class SimuladoService {
 
 
 
-    @Transactional(readOnly = true)
-    public SimuladoExecucaoResponse buscarSimuladoAtivo(Long usuarioId) {
 
-        return simuladoRepository
-                .findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
-                .map(simulado -> {
-                    List<QuestaoSimulado> questoes =
-                            questaoSimuladoRepository.findBySimuladoId(simulado.getId());
 
-                    // Ajuste do tempo restante
-                    Integer tempoDuracao = simulado.getTempoDuracao();
-                    if (tempoDuracao != null) {
-                        long minutosPassados = Duration.between(simulado.getDataCriacao(), LocalDateTime.now()).toMinutes();
-                        tempoDuracao = (int) Math.max(0, tempoDuracao - minutosPassados);
-                    }
-
-                    SimuladoExecucaoResponse response = SimuladoExecucaoResponse.fromEntity(simulado, questoes);
-                    response.setTempoDuracao(tempoDuracao); // sobrescreve com o tempo restante
-                    return response;
-                })
-                .orElse(null);
-    }
 
 
 
     @Transactional(readOnly = true)
     public List<SimuladoResumoResponse> listarResumoSimulados(Long usuarioId) {
-        LocalDateTime trintaDiasAtras = LocalDateTime.now().minusDays(30);
+        LocalDateTime trintaDiasAtras = LocalDateTime.now().minusDays(15);
 
         return simuladoRepository
-                .findByUsuarioIdAndDataCriacaoAfterOrderByDataCriacaoDesc(usuarioId, trintaDiasAtras)
+                .findByUsuarioIdAndStatusAndDataCriacaoAfterOrderByDataCriacaoDesc(usuarioId,StatusSimulado.FINALIZADO, trintaDiasAtras)
                 .stream()
                 .map(SimuladoResumoResponse::fromEntity)
                 .toList();
     }
 
-
-
-
-
     @Transactional
     public ResultadoSimuladoResponse responderSimulado(Long simuladoId, RespostaSimuladoRequest request) {
-
         Simulado simulado = simuladoRepository.findById(simuladoId)
                 .orElseThrow(() -> new NotFoundException("Simulado não encontrado"));
 
@@ -234,21 +212,13 @@ public class SimuladoService {
             throw new BusinessException("Simulado já finalizado");
         }
 
-        Long usuarioId = simulado.getUsuario().getId();
-        LocalDateTime agora = LocalDateTime.now();
-
-        int acertos = 0;
-        List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
-
+        // Atualiza respostas do usuário
         for (RespostaQuestaoSimulado r : request.getRespostas()) {
-
             QuestaoSimulado qs = questaoSimuladoRepository
                     .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
                     .orElseThrow(() -> new NotFoundException("Questão não encontrada"));
 
-            boolean correta = qs.getQuestao()
-                    .getRespostaCorreta()
-                    .equalsIgnoreCase(r.getRespostaUsuario());
+            boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
 
             qs.setRespostaUsuario(r.getRespostaUsuario());
             qs.setCorreta(correta);
@@ -256,45 +226,90 @@ public class SimuladoService {
             qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
 
             questaoSimuladoRepository.save(qs);
+        }
 
-            Tema tema = qs.getQuestao()
-                    .getSubcapitulo()
-                    .getCapitulo()
-                    .getTema();
+        // Finaliza simulado normalmente
+        return finalizarSimulado(simulado, false);
+    }
+
+    @Transactional
+    public Object buscarSimuladoAtivo(Long usuarioId) {
+
+        Simulado simulado = simuladoRepository
+                .findFirstByUsuarioIdAndStatus(usuarioId, StatusSimulado.EM_ANDAMENTO)
+                .orElse(null);
+
+        if (simulado == null) return null;
+
+        LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime fimSimulado = simulado.getDataCriacao().plusMinutes(simulado.getTempoDuracao());
+
+        if (agora.isAfter(fimSimulado)) {
+            // Finaliza simulado e retorna resultado final
+            ResultadoSimuladoResponse resultado = finalizarSimulado(simulado, true);
+            return resultado; // <-- retorna o DTO finalizado
+        }
+
+        // Simulado ainda em andamento: retorna simulado completo
+        List<QuestaoSimulado> questoesAtivas = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
+        return SimuladoExecucaoResponse.fromEntity(simulado, questoesAtivas);
+    }
+
+
+
+    @Transactional
+    public ResultadoSimuladoResponse finalizarSimulado(Simulado simulado, boolean porTempo) {
+        if (simulado.getStatus() == StatusSimulado.FINALIZADO) {
+            return visualizarResultado(simulado.getId());
+        }
+
+        Long usuarioId = simulado.getUsuario().getId();
+        LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime fimSimulado = porTempo && simulado.getTempoDuracao() != null
+                ? simulado.getDataCriacao().plusMinutes(simulado.getTempoDuracao())
+                : agora;
+
+        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
+        List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
+        int acertos = 0;
+
+        for (QuestaoSimulado qs : questoes) {
+            if (!qs.getRespondida()) {
+                qs.setRespondida(true);
+                qs.setCorreta(false);
+                qs.setRespostaUsuario(null);
+                qs.setPontuacaoObtida(0.0);
+            }
+
+            boolean correta = Boolean.TRUE.equals(qs.getCorreta());
+            if (correta) acertos++;
+
+            Tema tema = qs.getQuestao().getSubcapitulo().getCapitulo().getTema();
 
             historicos.add(
                     QuestaoHistoricoUsuario.builder()
                             .usuario(simulado.getUsuario())
                             .questao(qs.getQuestao())
-                            .dataResposta(agora)
+                            .dataResposta(fimSimulado)
                             .acertou(correta)
-                            .simuladoId(simuladoId)
+                            .simuladoId(simulado.getId())
                             .nivelDificuldade(qs.getQuestao().getNivelDificuldade())
                             .temaId(tema.getId())
                             .temaNome(tema.getNome())
                             .build()
             );
 
-
-            // ⭐ Evita criar cartão duplicado se já existir de erro anterior
+            // Cartão apenas para erros
             if (!correta && !cartaoRepository.existsByUsuarioIdAndQuestaoId(usuarioId, qs.getQuestao().getId())) {
-
-                // 🎯 Seleciona ou cria automaticamente o baralho do tema
                 Baralho baralho = baralhoRepository.findByUsuarioIdAndTemaId(usuarioId, tema.getId())
-                        .orElseGet(() -> {
-                            Baralho novo = baralhoRepository.save(
-                                    Baralho.builder()
-                                            .titulo("Erros em " + tema.getNome())
-                                            .tema(tema)
-                                            .usuario(simulado.getUsuario())
-                                            .build()
-                            );
-                            return novo;
-                        });
+                        .orElseGet(() -> baralhoRepository.save(
+                                Baralho.builder()
+                                        .titulo("Erros em " + tema.getNome())
+                                        .tema(tema)
+                                        .usuario(simulado.getUsuario())
+                                        .build()
+                        ));
 
-
-                // 🧩 Cria o cartão vinculado ao baralho
-                // Cria o cartão vinculado ao baralho
                 Cartao cartao = Cartao.builder()
                         .frente(qs.getQuestao().getEnunciado())
                         .verso(qs.getQuestao().getExplicacao())
@@ -305,49 +320,61 @@ public class SimuladoService {
                         .precisaRevisar(true)
                         .build();
 
-// Apenas salva — sem adicionar manualmente em baralho.getCartoes()
                 cartaoRepository.save(cartao);
-
             }
-
-
-            if (correta) acertos++;
         }
 
+        questaoSimuladoRepository.saveAll(questoes);
         questaoHistoricoUsuarioRepository.saveAll(historicos);
 
-        double pontuacaoFinal = (acertos * 100.0) / request.getRespostas().size();
+        double pontuacaoFinal = (acertos * 100.0) / questoes.size();
 
-        // ⭐ Calcula o tempo de estudo com mais segurança
-        LocalDateTime fim = LocalDateTime.now();
-        long tempoEstudoMinutos = Math.max(0, Duration.between(simulado.getDataCriacao(), fim).toMinutes());
-
-        if (simulado.getTempoDuracao() != null) {
-            tempoEstudoMinutos = Math.min(tempoEstudoMinutos, simulado.getTempoDuracao());
+        // Calcula tempo de estudo
+        long tempoEstudoMinutos;
+        if (porTempo && simulado.getTempoDuracao() != null) {
+            // Finalização automática: usa tempo planejado
+            tempoEstudoMinutos = simulado.getTempoDuracao();
+        } else {
+            tempoEstudoMinutos = Math.max(0, Duration.between(simulado.getDataCriacao(), fimSimulado).toMinutes());
+            if (simulado.getTempoDuracao() != null) {
+                tempoEstudoMinutos = Math.min(tempoEstudoMinutos, simulado.getTempoDuracao());
+            }
         }
 
-        // Atualiza e salva simulado
-        simulado.setPontuacaoFinal(pontuacaoFinal);
+        // Atualiza simulado
         simulado.setStatus(StatusSimulado.FINALIZADO);
-        simulado.setDataFinalizacao(fim);
+        simulado.setPontuacaoFinal(pontuacaoFinal);
+        simulado.setDataFinalizacao(fimSimulado);
         simuladoRepository.save(simulado);
 
-// 🧩 Gamificação
+        // Gamificação
         gamificacaoService.processarConclusaoSimulado(simulado);
 
-// 🆕 Registro no histórico de estudo geral
-        HistoricoEstudo historicoEstudo = HistoricoEstudo.builder()
-                .tipoAtividade(TipoAtividade.SIMULADO)
-                .tempoEstudoMinutos(tempoEstudoMinutos)
-                .usuario(simulado.getUsuario())
-                .referenciaId(simulado.getId())
-                .build();
+        // Histórico geral: atualizar se já existir
+        HistoricoEstudo historicoExistente = historicoEstudoRepository
+                .findByUsuarioIdAndReferenciaId(usuarioId, simulado.getId())
+                .orElse(null);
 
-        historicoEstudoRepository.save(historicoEstudo);
+        if (historicoExistente != null) {
+            historicoExistente.setTempoEstudoMinutos(tempoEstudoMinutos);
+            historicoEstudoRepository.save(historicoExistente);
+        } else {
+            historicoEstudoRepository.save(
+                    HistoricoEstudo.builder()
+                            .tipoAtividade(TipoAtividade.SIMULADO)
+                            .tempoEstudoMinutos(tempoEstudoMinutos)
+                            .usuario(simulado.getUsuario())
+                            .referenciaId(simulado.getId())
+                            .build()
+            );
+        }
 
-        return visualizarResultado(simuladoId);
-
+        return visualizarResultado(simulado.getId());
     }
+
+
+
+
 
 
 
@@ -400,6 +427,29 @@ public class SimuladoService {
             return PacoteFiltroSimuladoDTO.builder().pacoteId(pacote.getId()).nomePacote(pacote.getNome()).concursoId(pacote.getConcurso().getId()).nomeConcurso(pacote.getConcurso().getNome()).versao(pacote.getVersao()).temas(temas).bancasDisponiveis(bancas).niveisDisponiveis(niveis).build();
         }).toList();
     }
+
+
+    @Transactional
+    public void deletarSimulado(Long simuladoId, Long usuarioId) {
+        Simulado simulado = simuladoRepository.findById(simuladoId)
+                .orElseThrow(() -> new NotFoundException("Simulado não encontrado"));
+
+        if (!simulado.getUsuario().getId().equals(usuarioId)) {
+            throw new BusinessException("Você não tem permissão para deletar este simulado");
+        }
+
+        if (simulado.getStatus() != StatusSimulado.EM_ANDAMENTO) {
+            throw new BusinessException("Somente simulados em andamento podem ser deletados");
+        }
+
+        // Remove respostas vinculadas
+        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simuladoId);
+        questaoSimuladoRepository.deleteAll(questoes);
+
+        // Deleta o simulado
+        simuladoRepository.delete(simulado);
+    }
+
 
 }
 

@@ -26,4 +26,6 @@ public interface HistoricoEstudoRepository extends JpaRepository<HistoricoEstudo
     """)
     Long sumTempoEstudoByUsuario(@Param("usuarioId") Long usuarioId);
 
+    Optional<HistoricoEstudo> findByUsuarioIdAndReferenciaId(Long usuarioId, Long referenciaId);
+
 }
