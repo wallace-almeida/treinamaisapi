@@ -35,11 +35,6 @@ public class ConcursoController implements ConcursoControllerSwagger {
         return ResponseEntity.ok(concursoService.buscarPorId(id));
     }
 
-    @GetMapping
-    @Override
-    public ResponseEntity<List<ConcursoResponse>> listarAtivos() {
-        return ResponseEntity.ok(concursoService.listarAtivosResponse());
-    }
 
 
     @PatchMapping("/{concursoId}/ativar")

@@ -26,8 +26,7 @@ public interface ConcursoControllerSwagger {
     ResponseEntity<ConcursoResponse> buscarPorId(@PathVariable Long id);
 
 
-    @GetMapping
-    ResponseEntity<List<ConcursoResponse>> listarAtivos();
+
 
 
     @PatchMapping("/{concursoId}/ativar")

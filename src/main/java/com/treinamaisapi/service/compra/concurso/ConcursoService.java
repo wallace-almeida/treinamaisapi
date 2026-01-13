@@ -74,17 +74,7 @@ public class ConcursoService {
 
 
 
-    public List<ConcursoResponse> listarAtivosResponse() {
-        return concursoRepository.findByStatus(StatusConcurso.ATIVO)
-                .stream()
-                .map(c -> ConcursoResponse.builder()
-                        .id(c.getId())
-                        .nome(c.getNome())
-                        .descricao(c.getDescricao())
-                        .dataProva(c.getDataProva())
-                        .build())
-                .toList();
-    }
+
 
 
     @Transactional
