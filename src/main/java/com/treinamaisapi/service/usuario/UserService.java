@@ -2,6 +2,8 @@ package com.treinamaisapi.service.usuario;
 
 
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
+import com.treinamaisapi.common.dto.usuario.perfil.AtualizarPerfilRequest;
+import com.treinamaisapi.common.dto.usuario.perfil.UsuarioPerfilResponse;
 import com.treinamaisapi.common.dto.usuario.progress.ProgressoUsuarioResponse;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
@@ -12,6 +14,8 @@ import com.treinamaisapi.repository.QuestaoHistoricoUsuarioRepository;
 import com.treinamaisapi.repository.SimuladoRepository;
 import com.treinamaisapi.repository.UsuarioRepository;
 import com.treinamaisapi.service.avatar.AvatarService;
+import com.treinamaisapi.service.serviceAcess.RateLimitService;
+import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,12 +30,15 @@ public class UserService {
     private final SimuladoRepository simuladoRepository;
     private  final AvatarService avatarService;
 
-    public UserService(UsuarioRepository usuarioRepository, QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository, HistoricoEstudoRepository historicoEstudoRepository, SimuladoRepository simuladoRepository, AvatarService avatarService) {
+    private  final RateLimitService rateLimitService;
+
+    public UserService(UsuarioRepository usuarioRepository, QuestaoHistoricoUsuarioRepository questaoHistoricoUsuarioRepository, HistoricoEstudoRepository historicoEstudoRepository, SimuladoRepository simuladoRepository, AvatarService avatarService, RateLimitService rateLimitService) {
         this.usuarioRepository = usuarioRepository;
         this.questaoHistoricoUsuarioRepository = questaoHistoricoUsuarioRepository;
         this.historicoEstudoRepository = historicoEstudoRepository;
         this.simuladoRepository = simuladoRepository;
         this.avatarService = avatarService;
+        this.rateLimitService = rateLimitService;
     }
 
     public Usuario findByEmail(String email) {
@@ -99,6 +106,59 @@ public class UserService {
         usuario.setAvatar(avatarNome);
         usuarioRepository.save(usuario);
     }
+
+
+    @Transactional
+    public UsuarioPerfilResponse atualizarPerfil(
+            Long usuarioId,
+            AtualizarPerfilRequest request
+    ) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
+
+        // 1️⃣ Rate limit (antes de validar senha)
+        rateLimitService.validar(usuarioId);
+
+        // 2️⃣ Senha sempre obrigatória
+        if (!passwordEncoder.matches(request.getSenhaAtual(), usuario.getSenha())) {
+            throw new BusinessException("Senha inválida");
+        }
+
+        // 3️⃣ Senha correta → reseta rate limit
+        rateLimitService.resetar(usuarioId);
+
+        boolean alterou = false;
+
+        // 4️⃣ Atualiza nome (se veio)
+        if (request.getName() != null &&
+                !request.getName().equals(usuario.getNome())) {
+
+            usuario.setNome(request.getName());
+            alterou = true;
+        }
+
+        // 5️⃣ Atualiza email (se veio)
+        if (request.getEmail() != null &&
+                !request.getEmail().equals(usuario.getEmail())) {
+
+            if (usuarioRepository.existsByEmail(request.getEmail())) {
+                throw new BusinessException("E-mail já está em uso");
+            }
+
+            usuario.setEmail(request.getEmail());
+            alterou = true;
+        }
+
+        if (!alterou) {
+            throw new BusinessException("Nenhuma alteração detectada");
+        }
+
+        usuarioRepository.save(usuario);
+
+        return UsuarioPerfilResponse.fromEntity(usuario);
+    }
+
+
 
 
 }
