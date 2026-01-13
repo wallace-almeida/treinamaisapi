@@ -4,6 +4,8 @@ import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
+import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
+import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.usuarios.Usuario;
@@ -27,45 +29,59 @@ public class PacoteCompradoService {
     private final PacoteRepository pacoteRepository;
 
     @Transactional
-    public CompraResponse comprarPacote(Long usuarioId, Long pacoteId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
-        Pacote pacote = pacoteRepository.findById(pacoteId).orElseThrow(() -> new BusinessException("Pacote não encontrado."));
+    public CompraResponse comprar(Long usuarioId, Long pacoteId) {
 
-        // Verifica se o usuário já tem um pacote ativo e não expirado
+        PacoteComprado compra = realizarCompra(usuarioId, pacoteId);
 
-        boolean jaComprado = pacoteCompradoRepository
-                .findByUsuarioIdAndAtivoTrue(usuario.getId())
-                .stream()
-                .anyMatch(c -> c.getPacote().getId().equals(pacote.getId()));
+        return toResponse(compra);
+    }
 
-        if (jaComprado) {
-            throw new BusinessException("Usuário já possui esse pacote ativo");
+    private PacoteComprado realizarCompra(Long usuarioId, Long pacoteId) {
+
+        Pacote pacote = pacoteRepository.findById(pacoteId)
+                .orElseThrow(() -> new RuntimeException("Pacote não encontrado"));
+
+        if (!pacote.isAtivo() ||
+                pacote.getConcurso().getStatus() != StatusConcurso.ATIVO) {
+            throw new RuntimeException("Pacote indisponível para compra");
         }
 
-        LocalDateTime dataExpiracao = LocalDateTime.now().plusDays(pacote.getDuracaoDias());
-        // Define a expiração do pacote (exemplo: 30 dias após a compra)
-        LocalDate hoje = LocalDate.now();
+        pacoteCompradoRepository
+                .findByUsuarioIdAndPacoteIdAndStatus(
+                        usuarioId, pacoteId, StatusCompra.APROVADA)
+                .ifPresent(p -> {
+                    if (!p.isExpirado()) {
+                        throw new RuntimeException("Usuário já possui acesso ativo");
+                    }
+                });
 
+        LocalDateTime agora = LocalDateTime.now();
 
         PacoteComprado compra = PacoteComprado.builder()
-                .usuario(usuario)
+                .usuario(usuarioRepository.getReferenceById(usuarioId))
                 .pacote(pacote)
-                .dataCompra(LocalDateTime.now())
-                .dataExpiracao(dataExpiracao)
+                .dataCompra(agora)
+                .dataExpiracao(agora.plusDays(pacote.getDuracaoDias()))
+                .status(StatusCompra.APROVADA) // MVP
                 .ativo(true)
                 .build();
 
-        pacoteCompradoRepository.save(compra);
+        return pacoteCompradoRepository.save(compra);
+    }
 
+    private CompraResponse toResponse(PacoteComprado compra) {
         return CompraResponse.builder()
                 .id(compra.getId())
-                .usuario(usuario.getNome())
-                .pacote(pacote.getNome())
-                .ativo(true)
+                .pacoteId(compra.getPacote().getId())
+                .pacoteNome(compra.getPacote().getNome())
+                .valor(compra.getPacote().getPreco())
+                .status(compra.getStatus())
+                .ativo(compra.isAtivo())
                 .dataCompra(compra.getDataCompra())
                 .dataExpiracao(compra.getDataExpiracao())
                 .build();
     }
+
 
     @Transactional(readOnly = true)
     public List<PacoteCompradoComUsuarioDTO> listarComprasAtivas(Long usuarioId) {

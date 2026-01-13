@@ -1,15 +1,18 @@
 package com.treinamaisapi.service.compra.pacote;
 
+import com.treinamaisapi.common.dto.concurso.response.ConcursoResponse;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.Concurso;
+import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.tema.Tema;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.*;
+import com.treinamaisapi.service.compra.concurso.ConcursoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ public class PacoteService {
 
     private final PacoteRepository pacoteRepository;
     private final ConcursoRepository concursoRepository;
+    private final ConcursoService concursoService;
     private final TemaRepository temaRepository;
 
     @Transactional
@@ -38,6 +42,11 @@ public class PacoteService {
         }
 
         List<Tema> temas = validarTemas(request.getTemaIds());
+
+        if (temas.isEmpty()) {
+            throw new BusinessException("É obrigatório informar ao menos um tema.");
+        }
+
 
         Pacote pacote = Pacote.builder()
                 .nome(request.getNome())
@@ -125,5 +134,19 @@ public class PacoteService {
                 .orElseThrow(() -> new NotFoundException("Pacote não encontrado"));
         return pacote.getVersao();
     }
+
+    @Transactional(readOnly = true)
+    public List<Pacote> listarPacotesPorConcurso(Long concursoId) {
+
+        Concurso concurso = concursoService.buscarEntidadePorId(concursoId);
+
+        if (concurso.getStatus() != StatusConcurso.ATIVO) {
+            throw new RuntimeException("Concurso não está ativo");
+        }
+
+        return pacoteRepository.findByConcursoIdAndAtivoTrue(concursoId);
+    }
+
+
 
 }

@@ -4,11 +4,14 @@ import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.controller.swagger.PacoteControllerSwagger;
+import com.treinamaisapi.entity.pacotes.Pacote;
+import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
 import com.treinamaisapi.service.compra.pacote.PacoteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,11 +30,14 @@ public class PacoteController implements PacoteControllerSwagger {
         return ResponseEntity.ok(pacoteService.criarPacote(request));
     }
 
-    @GetMapping("/ativos/{usuarioId}")
+    @GetMapping("/ativos")
     @Override
-    public List<PacoteCompradoComUsuarioDTO> listarAtivas(@PathVariable Long usuarioId) {
-        return pacoteCompradoService.listarComprasAtivas(usuarioId);
+    public List<PacoteCompradoComUsuarioDTO> listarAtivas(
+            @AuthenticationPrincipal Usuario usuario) {
+
+        return pacoteCompradoService.listarComprasAtivas(usuario.getId());
     }
+
 
     @PutMapping("/atualizar/{id}")
     @Override
@@ -43,5 +49,11 @@ public class PacoteController implements PacoteControllerSwagger {
     @Override
     public Integer getVersao(@PathVariable("id") Long pacoteId) {
         return pacoteService.buscarVersaoPorId(pacoteId);
+    }
+
+    @GetMapping("/concurso/{concursoId}")
+    @Override
+    public ResponseEntity<List<Pacote>> listarPorConcurso(@PathVariable Long concursoId) {
+        return ResponseEntity.ok(pacoteService.listarPacotesPorConcurso(concursoId));
     }
 }

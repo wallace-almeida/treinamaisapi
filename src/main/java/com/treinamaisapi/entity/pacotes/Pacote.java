@@ -43,6 +43,12 @@ public class Pacote {
     @Column(nullable = false)
     private Integer duracaoDias; // Ex: 90 dias de acesso
 
+    @Column(nullable = false)
+    private boolean ativo = true;
+
+    @Column(name = "atualizado_em")
+    private LocalDateTime atualizadoEm = LocalDateTime.now();
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "pacote_temas",
@@ -50,6 +56,17 @@ public class Pacote {
             inverseJoinColumns = @JoinColumn(name = "tema_id")
     )
     private List<Tema> temas = new ArrayList<>();
+
+    @PrePersist
+    public void prePersist() {
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
 
 
 

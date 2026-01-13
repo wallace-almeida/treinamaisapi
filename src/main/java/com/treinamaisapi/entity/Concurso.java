@@ -1,5 +1,6 @@
 package com.treinamaisapi.entity;
 
+import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,6 +29,12 @@ public class Concurso {
     private String descricao; // Ex: "Concurso da Escola de Especialistas da Aeronáutica"
 
     private LocalDate dataProva;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusConcurso status = StatusConcurso.FUTURO;
+
 
     @OneToMany(mappedBy = "concurso", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Pacote> pacotes = new ArrayList<>();

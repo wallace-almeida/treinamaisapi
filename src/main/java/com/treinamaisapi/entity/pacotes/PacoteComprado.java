@@ -1,5 +1,6 @@
 package com.treinamaisapi.entity.pacotes;
 
+import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,11 +32,19 @@ public class PacoteComprado {
     @Column(nullable = false)
     private LocalDateTime dataCompra= LocalDateTime.now();
 
+    @Column(nullable = true)
+    private LocalDateTime dataExpiracao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusCompra status;
+
     @Column(nullable = false)
     private boolean ativo = true;
 
-    @Column(nullable = true)
-    private LocalDateTime dataExpiracao;
+    // gateway (futuro)
+    private String transactionId;
+
 
     public PacoteComprado() {}
 
@@ -44,4 +53,5 @@ public class PacoteComprado {
     public boolean isExpirado() {
         return dataExpiracao != null && dataExpiracao.isBefore(LocalDateTime.now());
     }
+
 }

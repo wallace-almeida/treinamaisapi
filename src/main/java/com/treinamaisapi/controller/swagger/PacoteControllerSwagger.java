@@ -4,9 +4,12 @@ package com.treinamaisapi.controller.swagger;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
+import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
+import com.treinamaisapi.entity.usuarios.Usuario;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,8 +22,9 @@ public interface PacoteControllerSwagger {
     ResponseEntity<PacoteResponse> criarPacote(@RequestBody PacoteRequest request);
 
 
-    @GetMapping("/ativos/{usuarioId}")
-    List<PacoteCompradoComUsuarioDTO> listarAtivas(@PathVariable Long usuarioId);
+    @GetMapping("/ativos")
+    List<PacoteCompradoComUsuarioDTO> listarAtivas(
+            @AuthenticationPrincipal Usuario usuario);
 
     @PutMapping("/atualizar/{id}")
     PacoteResponse atualizarPacote(@PathVariable Long id, @RequestBody PacoteRequest request);
@@ -29,4 +33,7 @@ public interface PacoteControllerSwagger {
 
     @GetMapping("/{id}/versao")
     Integer getVersao(@PathVariable("id") Long pacoteId);
+
+    @GetMapping("/concurso/{concursoId}")
+    ResponseEntity<List<Pacote>> listarPorConcurso(@PathVariable Long concursoId);
 }

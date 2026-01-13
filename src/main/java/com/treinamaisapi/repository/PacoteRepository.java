@@ -8,11 +8,13 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface PacoteRepository extends JpaRepository<Pacote, Long>, JpaSpecificationExecutor<Pacote>,  PagingAndSortingRepository<Pacote, Long>{
     boolean existsByNomeAndConcursoId(String nome, Long concursoId);
 
+    List<Pacote> findByConcursoIdAndAtivoTrue(Long concursoId);
 
 }
