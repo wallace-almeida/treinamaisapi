@@ -24,4 +24,6 @@ public interface PacoteCompradoRepository extends JpaRepository<PacoteComprado, 
 
     Optional<PacoteComprado>
     findByUsuarioIdAndPacoteIdAndStatus(Long usuarioId, Long pacoteId, StatusCompra status);
+
+    Optional<PacoteComprado> findByPixTxId(String pixTxId);
 }

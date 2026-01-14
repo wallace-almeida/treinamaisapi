@@ -1,5 +1,6 @@
 package com.treinamaisapi.service.compra.compraEfetiv;
 
+import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixGateway;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -18,6 +19,8 @@ public class CompraService {
     private static final int PRAZO_CANCELAMENTO_DIAS = 7;
 
     private final PacoteCompradoRepository repository;
+
+    private final PixGateway pixGateway;
 
     @Transactional
     public PacoteComprado cancelar(

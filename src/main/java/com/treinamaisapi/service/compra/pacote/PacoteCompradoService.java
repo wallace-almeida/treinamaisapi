@@ -1,10 +1,14 @@
 package com.treinamaisapi.service.compra.pacote;
 
+import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixGateway;
+import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
+import com.treinamaisapi.common.dto.compra.pix.response.PixCobrancaResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
+import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -28,6 +32,8 @@ public class PacoteCompradoService {
     private final PacoteCompradoRepository pacoteCompradoRepository;
     private final UsuarioRepository usuarioRepository;
     private final PacoteRepository pacoteRepository;
+    private final PixGateway pixGateway;
+
 
     @Transactional
     public CompraResponse comprar(Long usuarioId, Long pacoteId) {
@@ -143,6 +149,87 @@ public class PacoteCompradoService {
         }
 
     }
+
+
+    // Pagamento por GATeway  meio Pix
+
+    @Transactional
+    public CriarCompraPixResponse criarCompraPix(Long usuarioId, Long pacoteId) {
+
+        Pacote pacote = pacoteRepository.findById(pacoteId)
+                .orElseThrow(() -> new BusinessException("Pacote não encontrado"));
+
+        if (!pacote.isAtivo() ||
+                pacote.getConcurso().getStatus() != StatusConcurso.ATIVO) {
+            throw new BusinessException("Pacote indisponível para compra");
+        }
+
+        // impede duplicidade ativa
+        pacoteCompradoRepository
+                .findByUsuarioIdAndPacoteId(usuarioId, pacoteId)
+                .ifPresent(compra -> {
+                    if (compra.getStatus() == StatusCompra.APROVADA &&
+                            !compra.isExpirado()) {
+                        throw new BusinessException("Usuário já possui acesso ativo");
+                    }
+                });
+
+        PacoteComprado compra = PacoteComprado.builder()
+                .usuario(usuarioRepository.getReferenceById(usuarioId))
+                .pacote(pacote)
+                .status(StatusCompra.PENDENTE)
+                .meioPagamento(MeioPagamento.PIX)
+                .gateway("ASAAS")
+                .ativo(false)
+                .build();
+
+        compra = pacoteCompradoRepository.save(compra);
+
+        PixCobrancaResponse pix = pixGateway.criarCobranca(
+                compra.getId(),
+                pacote.getPreco()
+        );
+
+        compra.setPixTxId(pix.getTxId());
+        compra.setPixExpiracao(pix.getExpiracao());
+
+        pacoteCompradoRepository.save(compra);
+
+        return CriarCompraPixResponse.builder()
+                .compraId(compra.getId())
+                .status(compra.getStatus())
+                .qrCodeBase64(pix.getQrCodeBase64())
+                .qrCodeCopiaCola(pix.getCopiaCola())
+                .expiracaoPix(pix.getExpiracao())
+                .build();
+    }
+
+    // Confirmar Pagamento
+
+    @Transactional
+    public void confirmarPagamentoPix(String txId) {
+
+        PacoteComprado compra = pacoteCompradoRepository
+                .findByPixTxId(txId)
+                .orElseThrow(() -> new BusinessException("Compra não encontrada"));
+
+        if (compra.getStatus() == StatusCompra.APROVADA) return;
+
+        compra.setStatus(StatusCompra.APROVADA);
+        compra.setAtivo(true);
+        compra.setDataExpiracao(
+                LocalDateTime.now().plusDays(
+                        compra.getPacote().getDuracaoDias()
+                )
+        );
+
+        pacoteCompradoRepository.save(compra);
+    }
+
+
+
+
+
 
 
 

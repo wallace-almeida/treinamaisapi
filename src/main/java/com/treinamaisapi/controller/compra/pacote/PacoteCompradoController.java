@@ -1,5 +1,7 @@
 package com.treinamaisapi.controller.compra.pacote;
 
+import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
+import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.controller.swagger.PacoteCompradoControllerSwagger;
 import com.treinamaisapi.entity.usuarios.Usuario;
@@ -24,6 +26,8 @@ public class PacoteCompradoController implements PacoteCompradoControllerSwagger
             @AuthenticationPrincipal Usuario usuarioAutenticado) {
 
         return pacoteCompradoService.comprar(usuarioAutenticado.getId(), pacoteId);
+
+
     }
 
 
@@ -33,6 +37,22 @@ public class PacoteCompradoController implements PacoteCompradoControllerSwagger
     @Override
     public ResponseEntity<Void> desativarExpirado(@PathVariable Long id) {
         pacoteCompradoService.desativarPacoteExpirado(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/pacotes/{pacoteId}/pix")
+    public CriarCompraPixResponse criarPix(
+            @PathVariable Long pacoteId,
+            @AuthenticationPrincipal Usuario usuario
+    ) {
+        return pacoteCompradoService.criarCompraPix(usuario.getId(), pacoteId);
+    }
+
+    @PostMapping("/webhooks/pix")
+    public ResponseEntity<Void> webhookPix(
+            @RequestBody PixWebhookRequest request
+    ) {
+        pacoteCompradoService.confirmarPagamentoPix(request.getTxId());
         return ResponseEntity.ok().build();
     }
 
