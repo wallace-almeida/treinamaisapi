@@ -17,6 +17,7 @@ import java.util.Optional;
 public interface PacoteCompradoRepository extends JpaRepository<PacoteComprado, Long>, JpaSpecificationExecutor<PacoteComprado>,  PagingAndSortingRepository<PacoteComprado, Long>{
 
 
+    Optional<PacoteComprado> findByUsuarioIdAndPacoteId(Long usuarioId, Long pacoteId);
 
 
     List<PacoteComprado> findByUsuarioIdAndAtivoTrue(Long usuarioId);

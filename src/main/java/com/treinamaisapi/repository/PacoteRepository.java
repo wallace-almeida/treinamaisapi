@@ -17,4 +17,6 @@ public interface PacoteRepository extends JpaRepository<Pacote, Long>, JpaSpecif
 
     List<Pacote> findByConcursoIdAndAtivoTrue(Long concursoId);
 
+    List<Pacote> findByAtivoTrue();
+
 }

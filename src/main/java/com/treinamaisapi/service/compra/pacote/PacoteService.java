@@ -2,6 +2,7 @@ package com.treinamaisapi.service.compra.pacote;
 
 import com.treinamaisapi.common.dto.concurso.response.ConcursoResponse;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
+import com.treinamaisapi.common.dto.pacote.response.CatalogoPacoteDTO;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -147,6 +149,29 @@ public class PacoteService {
         return pacoteRepository.findByConcursoIdAndAtivoTrue(concursoId);
     }
 
+// pacotes para a tela de planos
+@Transactional(readOnly = true)
+public List<CatalogoPacoteDTO> listarCatalogo() {
+    List<Pacote> pacotes = pacoteRepository.findByAtivoTrue(); // todos pacotes ativos
+
+    return pacotes.stream()
+            .map(p -> CatalogoPacoteDTO.builder()
+                    .id(p.getId())
+                    .nome(p.getNome())
+                    .descricao(p.getDescricao())
+                    .preco(p.getPreco())
+                    .duracaoDias(p.getDuracaoDias())
+                    .concursoNome(p.getConcurso().getNome())
+                    .beneficios(p.getTemas().stream().map(Tema::getNome).toList())
+                    .maisPopular(definirMaisPopular(p))
+                    .build())
+            .toList();
+}
+
+    private Boolean definirMaisPopular(Pacote pacote) {
+        // Critério simples: pacotes acima de R$49,90 são mais populares (exemplo)
+        return pacote.getPreco().compareTo(new BigDecimal("49.90")) >= 0;
+    }
 
 
 }

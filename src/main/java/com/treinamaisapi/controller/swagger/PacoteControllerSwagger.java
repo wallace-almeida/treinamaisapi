@@ -3,6 +3,7 @@ package com.treinamaisapi.controller.swagger;
 
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
+import com.treinamaisapi.common.dto.pacote.response.CatalogoPacoteDTO;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -36,4 +37,7 @@ public interface PacoteControllerSwagger {
 
     @GetMapping("/concurso/{concursoId}")
     ResponseEntity<List<Pacote>> listarPorConcurso(@PathVariable Long concursoId);
+
+    @GetMapping("/catalogo")
+    ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo();
 }

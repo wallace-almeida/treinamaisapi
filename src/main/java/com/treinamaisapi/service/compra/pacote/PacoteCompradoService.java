@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,28 +47,44 @@ public class PacoteCompradoService {
             throw new RuntimeException("Pacote indisponível para compra");
         }
 
-        pacoteCompradoRepository
-                .findByUsuarioIdAndPacoteIdAndStatus(
-                        usuarioId, pacoteId, StatusCompra.APROVADA)
-                .ifPresent(p -> {
-                    if (!p.isExpirado()) {
-                        throw new RuntimeException("Usuário já possui acesso ativo");
-                    }
-                });
-
         LocalDateTime agora = LocalDateTime.now();
 
-        PacoteComprado compra = PacoteComprado.builder()
+        Optional<PacoteComprado> compraExistenteOpt =
+                pacoteCompradoRepository.findByUsuarioIdAndPacoteId(usuarioId, pacoteId);
+
+        // ✅ CASO 1 — Já existe compra
+        if (compraExistenteOpt.isPresent()) {
+            PacoteComprado compra = compraExistenteOpt.get();
+
+            // 🔒 Já está ativa
+            if (compra.getStatus() == StatusCompra.APROVADA && !compra.isExpirado()) {
+                throw new RuntimeException("Usuário já possui acesso ativo a este pacote");
+            }
+
+            // 🔁 Reativação (CANCELADA ou EXPIRADA)
+            compra.setStatus(StatusCompra.APROVADA);
+            compra.setAtivo(true);
+            compra.setDataCompra(agora);
+            compra.setDataExpiracao(agora.plusDays(pacote.getDuracaoDias()));
+            compra.setDataCancelamento(null);
+            compra.setMotivoCancelamento(null);
+
+            return pacoteCompradoRepository.save(compra);
+        }
+
+        // ✅ CASO 2 — Primeira compra
+        PacoteComprado novaCompra = PacoteComprado.builder()
                 .usuario(usuarioRepository.getReferenceById(usuarioId))
                 .pacote(pacote)
                 .dataCompra(agora)
                 .dataExpiracao(agora.plusDays(pacote.getDuracaoDias()))
-                .status(StatusCompra.APROVADA) // MVP
+                .status(StatusCompra.APROVADA)
                 .ativo(true)
                 .build();
 
-        return pacoteCompradoRepository.save(compra);
+        return pacoteCompradoRepository.save(novaCompra);
     }
+
 
     private CompraResponse toResponse(PacoteComprado compra) {
         return CompraResponse.builder()
@@ -97,6 +114,7 @@ public class PacoteCompradoService {
                     long diasRestantes = ChronoUnit.DAYS.between(hoje, dataProva);
 
                     return PacoteCompradoComUsuarioDTO.builder()
+                            .compraId(pc.getId())
                             .pacoteId(pc.getPacote().getId())
                             .nomePacote(pc.getPacote().getNome())
                             .dataCompra(pc.getDataCompra())
@@ -125,5 +143,7 @@ public class PacoteCompradoService {
         }
 
     }
+
+
 
 }

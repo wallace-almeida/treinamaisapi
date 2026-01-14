@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class PacoteCompradoComUsuarioDTO {
-
+    private Long compraId;
     // Dados do pacote
     private Long pacoteId;
     private String nomePacote;

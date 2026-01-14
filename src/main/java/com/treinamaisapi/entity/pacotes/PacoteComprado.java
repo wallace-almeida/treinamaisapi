@@ -45,6 +45,24 @@ public class PacoteComprado {
     // gateway (futuro)
     private String transactionId;
 
+    @Column(nullable = true)
+    private LocalDateTime dataCancelamento;
+
+    @Column(nullable = true, length = 255)
+    private String motivoCancelamento;
+
+    @Transient
+    public boolean podeCancelar() {
+        if (status == StatusCompra.CANCELADA ||
+                status == StatusCompra.REEMBOLSADA ||
+                status == StatusCompra.EXPIRADA) {
+            return false;
+        }
+
+        return dataCompra.plusDays(7).isAfter(LocalDateTime.now());
+    }
+
+
 
     public PacoteComprado() {}
 
