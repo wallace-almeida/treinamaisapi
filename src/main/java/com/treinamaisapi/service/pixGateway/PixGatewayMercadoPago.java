@@ -17,9 +17,9 @@ public class PixGatewayMercadoPago implements PixGateway {
             BigDecimal valor
     ) {
         return PixCobrancaResponse.builder()
-                .txId(UUID.randomUUID().toString())
-                .qrCodeBase64("FAKE_QR_CODE")
-                .copiaCola("000201FAKEPIX")
+                .txId("MP_" + UUID.randomUUID())
+                .qrCodeBase64("BASE64_QR")
+                .copiaCola("000201PIX...")
                 .expiracao(LocalDateTime.now().plusMinutes(30))
                 .build();
     }

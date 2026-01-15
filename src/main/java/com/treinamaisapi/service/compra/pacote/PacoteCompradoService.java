@@ -179,7 +179,7 @@ public class PacoteCompradoService {
                 .pacote(pacote)
                 .status(StatusCompra.PENDENTE)
                 .meioPagamento(MeioPagamento.PIX)
-                .gateway("ASAAS")
+                .gateway("MERCADO_PAGO")
                 .ativo(false)
                 .build();
 
@@ -192,7 +192,6 @@ public class PacoteCompradoService {
 
         compra.setPixTxId(pix.getTxId());
         compra.setPixExpiracao(pix.getExpiracao());
-
         pacoteCompradoRepository.save(compra);
 
         return CriarCompraPixResponse.builder()
