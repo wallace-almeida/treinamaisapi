@@ -49,12 +49,15 @@ public class PacoteCompradoController implements PacoteCompradoControllerSwagger
     }
 
     @PostMapping("/webhooks/pix")
-    public ResponseEntity<Void> webhookPix(
-            @RequestBody PixWebhookRequest request
-    ) {
-        pacoteCompradoService.confirmarPagamentoPix(request.getTxId());
+    public ResponseEntity<Void> webhookPix(@RequestBody PixWebhookRequest request) {
+
+        if ("approved".equalsIgnoreCase(request.getStatus())) {
+            pacoteCompradoService.confirmarPagamentoPix(request.getTxId());
+        }
+
         return ResponseEntity.ok().build();
     }
+
 
 
 
