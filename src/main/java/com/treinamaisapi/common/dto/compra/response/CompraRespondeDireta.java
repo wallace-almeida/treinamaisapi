@@ -9,10 +9,18 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class CompraResponse {
+public class CompraRespondeDireta {
     private Long id;
+
+    private Long pacoteId;
+
+    private String pacoteNome;
+
+    private BigDecimal valor;
+
     private StatusCompra status;
-    private boolean ativo;
+    private Boolean ativo;
+
     private LocalDateTime dataCompra;
     private LocalDateTime dataExpiracao;
 }

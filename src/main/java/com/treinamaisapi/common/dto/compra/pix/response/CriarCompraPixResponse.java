@@ -17,4 +17,6 @@ public class CriarCompraPixResponse {
     private String qrCodeCopiaCola;
 
     private LocalDateTime expiracaoPix;
+
+    private String ticketUrl;
 }

@@ -1,5 +1,6 @@
 package com.treinamaisapi.controller.compra.pacote;
 
+import com.treinamaisapi.common.dto.compra.response.CompraRespondeDireta;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.CatalogoPacoteDTO;
@@ -64,4 +65,20 @@ public class PacoteController implements PacoteControllerSwagger {
         return ResponseEntity.ok(pacoteService.listarCatalogo());
     }
 
-}
+
+    // Compra direta sem passar por gatway
+
+    // ✅ Compra direta (sem meio de pagamento)
+    @PostMapping("/pacote/{pacoteId}/compra-direta")
+    @Override
+    public CompraRespondeDireta comprarPacoteSemMeioPagamento(
+            @PathVariable Long pacoteId,
+            @AuthenticationPrincipal Usuario usuarioAutenticado) {
+
+        return pacoteCompradoService.comprarSemMeio(usuarioAutenticado.getId(), pacoteId);
+    }
+
+
+    }
+
+

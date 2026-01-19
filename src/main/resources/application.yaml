@@ -100,10 +100,10 @@ spring:
     password: 24071602
     properties:
       hibernate.format_sql: true  # Corrigido o formato
-keycloak:
-  #jwkSetUri:
-  #jwkSetUri:
-  jwkSetUri:
+mercadopago:
+  access-token: ${MP_ACCESS_TOKEN_SANDBOX}
+  public-key: ${MP_PUBLIC_KEY_SANDBOX}
+  webhook-url: "https://palpitant-tanya-rightly.ngrok-free.dev/treinamais-api/api/comprar/pix"
 ambiente:
   nmAmbiente: DESENVOLVIMENTO-HML
 logging:

@@ -57,6 +57,7 @@ public class PacoteService {
                 .duracaoDias(request.getDuracaoDias())
                 .concurso(concurso)
                 .temas(temas)
+                .ativo(true)
                 .versao(1)
                 .build();
 
@@ -172,6 +173,9 @@ public List<CatalogoPacoteDTO> listarCatalogo() {
         // Critério simples: pacotes acima de R$49,90 são mais populares (exemplo)
         return pacote.getPreco().compareTo(new BigDecimal("49.90")) >= 0;
     }
+
+
+    // compra direta
 
 
 }

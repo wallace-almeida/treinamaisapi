@@ -1,6 +1,7 @@
 package com.treinamaisapi.controller.swagger;
 
 
+import com.treinamaisapi.common.dto.compra.response.CompraRespondeDireta;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.CatalogoPacoteDTO;
@@ -40,4 +41,10 @@ public interface PacoteControllerSwagger {
 
     @GetMapping("/catalogo")
     ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo();
+
+    // ✅ Compra direta (sem meio de pagamento)
+    @PostMapping("/pacote/{pacoteId}/compra-direta")
+    CompraRespondeDireta comprarPacoteSemMeioPagamento(
+            @PathVariable Long pacoteId,
+            @AuthenticationPrincipal Usuario usuarioAutenticado);
 }

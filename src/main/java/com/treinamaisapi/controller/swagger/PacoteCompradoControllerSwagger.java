@@ -3,6 +3,8 @@ package com.treinamaisapi.controller.swagger;
 
 
 
+import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
+import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
@@ -17,11 +19,25 @@ import org.springframework.web.bind.annotation.*;
 public interface PacoteCompradoControllerSwagger {
 
 
-    @PostMapping("/pacote/{pacoteId}")
-    CompraResponse comprarPacote(
-            @PathVariable Long pacoteId,
-            @AuthenticationPrincipal Usuario usuarioAutenticado);
+
 
     @PostMapping("/desativar/{id}")
     ResponseEntity<Void> desativarExpirado(@PathVariable Long id);
+
+
+    // pix
+    @PostMapping("/{pacoteId}/pix")
+    CriarCompraPixResponse criarPix(
+            @PathVariable Long pacoteId,
+            @AuthenticationPrincipal Usuario usuario
+    );
+
+    @GetMapping("/compras/{compraId}")
+    CompraResponse buscarCompra(
+            @PathVariable Long compraId,
+            @AuthenticationPrincipal Usuario usuario
+    );
+
+    @PostMapping("/pix")
+    ResponseEntity<Void> webhookPix(@RequestBody PixWebhookRequest request);
 }

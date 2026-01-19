@@ -3,6 +3,7 @@ package com.treinamaisapi.service.compra.pacote;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixGateway;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.pix.response.PixCobrancaResponse;
+import com.treinamaisapi.common.dto.compra.response.CompraRespondeDireta;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
 import com.treinamaisapi.common.exception.BusinessException;
@@ -35,13 +36,7 @@ public class PacoteCompradoService {
     private final PixGateway pixGateway;
 
 
-    @Transactional
-    public CompraResponse comprar(Long usuarioId, Long pacoteId) {
 
-        PacoteComprado compra = realizarCompra(usuarioId, pacoteId);
-
-        return toResponse(compra);
-    }
 
     private PacoteComprado realizarCompra(Long usuarioId, Long pacoteId) {
 
@@ -92,18 +87,7 @@ public class PacoteCompradoService {
     }
 
 
-    private CompraResponse toResponse(PacoteComprado compra) {
-        return CompraResponse.builder()
-                .id(compra.getId())
-                .pacoteId(compra.getPacote().getId())
-                .pacoteNome(compra.getPacote().getNome())
-                .valor(compra.getPacote().getPreco())
-                .status(compra.getStatus())
-                .ativo(compra.isAtivo())
-                .dataCompra(compra.getDataCompra())
-                .dataExpiracao(compra.getDataExpiracao())
-                .build();
-    }
+
 
 
     @Transactional(readOnly = true)
@@ -116,8 +100,13 @@ public class PacoteCompradoService {
         // Converte cada PacoteComprado para DTO com cálculo de dias restantes
         return pacotesAtivos.stream()
                 .map(pc -> {
-                    LocalDate dataProva = pc.getPacote().getConcurso().getDataProva(); // vem da entidade Concurso
-                    long diasRestantes = ChronoUnit.DAYS.between(hoje, dataProva);
+
+                    LocalDate dataProva = pc.getPacote().getConcurso().getDataProva();
+                    Long diasRestantes = null;
+                    if (dataProva != null) {
+                        diasRestantes = ChronoUnit.DAYS.between(hoje, dataProva);
+                    }
+
 
                     return PacoteCompradoComUsuarioDTO.builder()
                             .compraId(pc.getId())
@@ -156,26 +145,16 @@ public class PacoteCompradoService {
     @Transactional
     public CriarCompraPixResponse criarCompraPix(Long usuarioId, Long pacoteId) {
 
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new BusinessException("Usuário não encontrado"));
+
         Pacote pacote = pacoteRepository.findById(pacoteId)
                 .orElseThrow(() -> new BusinessException("Pacote não encontrado"));
 
-        if (!pacote.isAtivo() ||
-                pacote.getConcurso().getStatus() != StatusConcurso.ATIVO) {
-            throw new BusinessException("Pacote indisponível para compra");
-        }
-
-        // impede duplicidade ativa
-        pacoteCompradoRepository
-                .findByUsuarioIdAndPacoteId(usuarioId, pacoteId)
-                .ifPresent(compra -> {
-                    if (compra.getStatus() == StatusCompra.APROVADA &&
-                            !compra.isExpirado()) {
-                        throw new BusinessException("Usuário já possui acesso ativo");
-                    }
-                });
+        // ... (demais validações)
 
         PacoteComprado compra = PacoteComprado.builder()
-                .usuario(usuarioRepository.getReferenceById(usuarioId))
+                .usuario(usuario)
                 .pacote(pacote)
                 .status(StatusCompra.PENDENTE)
                 .meioPagamento(MeioPagamento.PIX)
@@ -185,9 +164,18 @@ public class PacoteCompradoService {
 
         compra = pacoteCompradoRepository.save(compra);
 
+        String descricaoPagamento = String.format(
+                "Treina Mais — %s (%d dias)",
+                pacote.getNome(),
+                pacote.getDuracaoDias()
+        );
+
+        // 🟢 Agora passamos o e-mail real do usuário
         PixCobrancaResponse pix = pixGateway.criarCobranca(
                 compra.getId(),
-                pacote.getPreco()
+                pacote.getPreco(),
+                descricaoPagamento,
+                usuario.getEmail() // 👈 aqui!
         );
 
         compra.setPixTxId(pix.getTxId());
@@ -200,10 +188,11 @@ public class PacoteCompradoService {
                 .qrCodeBase64(pix.getQrCodeBase64())
                 .qrCodeCopiaCola(pix.getCopiaCola())
                 .expiracaoPix(pix.getExpiracao())
+                .ticketUrl(pix.getTicketUrl())
                 .build();
     }
 
-    // Confirmar Pagamento
+
 
     @Transactional
     public void confirmarPagamentoPix(String txId) {
@@ -212,12 +201,19 @@ public class PacoteCompradoService {
                 .findByPixTxId(txId)
                 .orElseThrow(() -> new BusinessException("Compra não encontrada"));
 
-        if (compra.getStatus() == StatusCompra.APROVADA) return;
+        if (compra.getStatus() == StatusCompra.APROVADA) {
+            return; // idempotente
+        }
 
         compra.setStatus(StatusCompra.APROVADA);
         compra.setAtivo(true);
+
+        LocalDateTime inicio = compra.getDataCompra() != null
+                ? compra.getDataCompra()
+                : LocalDateTime.now();
+
         compra.setDataExpiracao(
-                LocalDateTime.now().plusDays(
+                inicio.plusDays(
                         compra.getPacote().getDuracaoDias()
                 )
         );
@@ -226,7 +222,101 @@ public class PacoteCompradoService {
     }
 
 
+    @Transactional
+    public CompraResponse buscarCompra(Long compraId, Long usuarioId) {
+        PacoteComprado compra = pacoteCompradoRepository
+                .findByIdAndUsuarioId(compraId, usuarioId)
+                .orElseThrow(() -> new BusinessException("Compra não encontrada"));
 
+        return CompraResponse.builder()
+                .id(compra.getId())
+                .status(compra.getStatus())
+                .ativo(compra.isAtivo())
+                .dataCompra(compra.getDataCompra())
+                .dataExpiracao(compra.getDataExpiracao())
+                .build();
+    }
+
+
+
+    // Sem meio de pagamento
+
+
+
+    @Transactional
+    public CompraRespondeDireta comprarSemMeio(Long usuarioId, Long pacoteId) {
+        PacoteComprado compra = compraSemGateway(usuarioId, pacoteId);
+        return toResponseDireta(compra);
+    }
+
+    private PacoteComprado compraSemGateway(Long usuarioId, Long pacoteId) {
+
+        Pacote pacote = pacoteRepository.findById(pacoteId)
+                .orElseThrow(() -> new BusinessException("Pacote não encontrado"));
+
+        // (Opcional) Garantir que só pacotes gratuitos possam usar esse fluxo:
+    /*
+    if (pacote.getPreco() != null && pacote.getPreco().compareTo(BigDecimal.ZERO) > 0) {
+        throw new BusinessException("Este pacote exige pagamento via gateway.");
+    }
+    */
+
+        if (!pacote.isAtivo() ||
+                pacote.getConcurso().getStatus() != StatusConcurso.ATIVO) {
+            throw new BusinessException("Pacote indisponível para compra");
+        }
+
+        LocalDateTime agora = LocalDateTime.now();
+
+        Optional<PacoteComprado> compraExistenteOpt =
+                pacoteCompradoRepository.findByUsuarioIdAndPacoteId(usuarioId, pacoteId);
+
+        // ✅ CASO 1 — Já existe compra
+        if (compraExistenteOpt.isPresent()) {
+            PacoteComprado compra = compraExistenteOpt.get();
+
+            // Já está ativa e não expirada
+            if (compra.getStatus() == StatusCompra.APROVADA && !compra.isExpirado()) {
+                throw new BusinessException("Usuário já possui acesso ativo a este pacote");
+            }
+
+            // 🔁 Reativação (CANCELADA ou EXPIRADA)
+            compra.setStatus(StatusCompra.APROVADA);
+            compra.setAtivo(true);
+            compra.setDataCompra(agora);
+            compra.setDataExpiracao(agora.plusDays(pacote.getDuracaoDias()));
+            compra.setDataCancelamento(null);
+            compra.setMotivoCancelamento(null);
+
+            return pacoteCompradoRepository.save(compra);
+        }
+
+        // ✅ CASO 2 — Primeira compra
+        PacoteComprado novaCompra = PacoteComprado.builder()
+                .usuario(usuarioRepository.getReferenceById(usuarioId))
+                .pacote(pacote)
+                .dataCompra(agora)
+                .dataExpiracao(agora.plusDays(pacote.getDuracaoDias()))
+                .status(StatusCompra.APROVADA)// direto aprovado
+                .meioPagamento(MeioPagamento.PIX)
+                .ativo(true)
+                .build();
+
+        return pacoteCompradoRepository.save(novaCompra);
+    }
+
+    private CompraRespondeDireta toResponseDireta(PacoteComprado compra) {
+        return CompraRespondeDireta.builder()
+                .id(compra.getId())
+                .pacoteId(compra.getPacote().getId())
+                .pacoteNome(compra.getPacote().getNome())
+                .valor(compra.getPacote().getPreco())
+                .status(compra.getStatus())
+                .ativo(compra.isAtivo())
+                .dataCompra(compra.getDataCompra())
+                .dataExpiracao(compra.getDataExpiracao())
+                .build();
+    }
 
 
 

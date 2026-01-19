@@ -10,10 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "pacotes_comprados",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"usuario_id", "pacote_id"})
-)
+@Table(name = "pacotes_comprados")
 @Getter @Setter
 @Builder
 @AllArgsConstructor
@@ -46,11 +43,12 @@ public class PacoteComprado {
 
     // ===== PAGAMENTO =====
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private MeioPagamento meioPagamento;
 
-    private String gateway;        // ASAAS, MERCADOPAGO, etc
-    private String pixTxId;        // txid PIX
+    private String gateway;// ASAAS, MERCADOPAGO, etc
+
+    @Column(unique = true)
+    private String pixTxId;// txid PIX
     private LocalDateTime pixExpiracao;
 
     // ===== CONTROLE =====
@@ -64,6 +62,10 @@ public class PacoteComprado {
     public boolean isExpirado() {
         return dataExpiracao != null &&
                 dataExpiracao.isBefore(LocalDateTime.now());
+    }
+
+    public boolean possuiAcessoAtivo() {
+        return status == StatusCompra.APROVADA && !isExpirado() && ativo;
     }
 
     public boolean podeCancelar() {

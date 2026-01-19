@@ -13,5 +13,6 @@ public class PixCobrancaResponse {
     private String qrCodeBase64;
     private String copiaCola;
     private LocalDateTime expiracao;
+    private String ticketUrl;
 }
 

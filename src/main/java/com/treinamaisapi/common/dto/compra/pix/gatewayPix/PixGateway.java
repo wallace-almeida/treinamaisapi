@@ -6,11 +6,12 @@ import java.math.BigDecimal;
 
 public interface PixGateway {
 
-    PixCobrancaResponse criarCobranca(
-            Long compraId,
-            BigDecimal valor
-    );
+    PixCobrancaResponse criarCobranca(Long compraId, BigDecimal valor, String descricao, String emailPagador);
+
 
     void cancelarCobranca(String txId);
+
+    MpPaymentStatusResponse buscarPagamento(String paymentId);
 }
+
 

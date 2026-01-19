@@ -9,6 +9,8 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import io.swagger.v3.oas.models.servers.Server;
+
 
 @Configuration
 public class SwaggerConfig {
@@ -32,6 +34,8 @@ public class SwaggerConfig {
         final String securitySchemeName = "bearerAuth";
 
         return new OpenAPI()
+                // 👇 AQUI definimos o server relativo ao context-path
+                .addServersItem(new Server().url("/treinamais-api"))
                 .info(
                         new Info()
                                 .title("TREINA-MAIS-API [" + appEnviroment + "]")
@@ -39,7 +43,7 @@ public class SwaggerConfig {
                                 .version("1.0")
                                 .contact(contact())
                 )
-                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName)) // 🔥 Aplica o Token em todos os endpoints
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new io.swagger.v3.oas.models.Components()
                         .addSecuritySchemes(securitySchemeName,
                                 new SecurityScheme()
@@ -49,6 +53,7 @@ public class SwaggerConfig {
                                         .bearerFormat("JWT")
                         ));
     }
+
 
     private Contact contact() {
         return new Contact()
