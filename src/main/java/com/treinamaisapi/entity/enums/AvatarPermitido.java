@@ -10,7 +10,10 @@ public enum AvatarPermitido {
     AVATAR_06("avatar_06"),
     AVATAR_07("avatar_07"),
     AVATAR_08("avatar_08"),
-    AVATAR_09("avatar_09");
+    AVATAR_09("avatar_09"),
+    AVATAR_10("avatar_10"),
+    AVATAR_11("avatar_11"),
+    AVATAR_12("avatar_12");
 
     private final String codigo;
 
