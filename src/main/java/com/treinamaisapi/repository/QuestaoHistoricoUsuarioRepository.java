@@ -21,14 +21,19 @@ public interface QuestaoHistoricoUsuarioRepository
         extends JpaRepository<QuestaoHistoricoUsuario, Long>,
         JpaSpecificationExecutor<QuestaoHistoricoUsuario> {
 
-    // 1️⃣ Últimas questões respondidas
+    // 1️⃣ Últimas questões respondidas (com paginação)
     @Query("""
-        SELECT qh.questao.id
-        FROM QuestaoHistoricoUsuario qh
-        WHERE qh.usuario.id = :usuarioId
-        ORDER BY qh.dataResposta DESC
-    """)
-    List<Long> findUltimasQuestoesPorUsuario(@Param("usuarioId") Long usuarioId);
+    SELECT qh.questao.id
+    FROM QuestaoHistoricoUsuario qh
+    WHERE qh.usuario.id = :usuarioId
+    ORDER BY qh.dataResposta DESC
+""")
+    List<Long> findUltimasQuestoesPorUsuario(
+            @Param("usuarioId") Long usuarioId,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+
 
     // 2️⃣ Contagem de erros por questão (RAW)
     @Query("""

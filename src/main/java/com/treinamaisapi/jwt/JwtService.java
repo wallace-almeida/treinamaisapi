@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import io.jsonwebtoken.Claims;
@@ -17,7 +19,10 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY = "614E645267556B58703273357638782F413F4428472B4B6250655368566D5971";
+
+    @Value("${security.jwt.secret}")
+    private String SECRET_KEY;
+
     private static final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 60
 
             ; // 20 minutos

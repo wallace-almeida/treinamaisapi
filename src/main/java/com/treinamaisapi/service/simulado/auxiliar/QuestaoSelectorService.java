@@ -1,6 +1,5 @@
 package com.treinamaisapi.service.simulado.auxiliar;
 
-
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.usuarios.Usuario;
@@ -16,8 +15,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class QuestaoSelectorService {
 
+    public List<Questao> selecionar(List<Questao> questoes,
+                                    Usuario usuario,
+                                    int quantidade,
+                                    CriarSimuladoRequest request) {
+        // Usuario e request mantidos por enquanto para futura lógica personalizada
+        // (ex.: personalizar seleção com base em preferências, temas, etc.)
 
-    public List<Questao> selecionar(List<Questao> questoes, Usuario usuario, int quantidade, CriarSimuladoRequest request) {
         // garante que trabalhamos com lista mutável e sem duplicatas
         List<Questao> pool = new ArrayList<>(questoes.stream()
                 .distinct()
@@ -30,4 +34,3 @@ public class QuestaoSelectorService {
                 .collect(Collectors.toList());
     }
 }
-

@@ -1,5 +1,6 @@
 package com.treinamaisapi.entity.usuarios;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.treinamaisapi.entity.baralho.Baralho;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -46,18 +47,23 @@ public class Usuario implements UserDetails {
     private LocalDateTime atualizadoEm;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Simulado> simulados;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Baralho> baralhos;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<HistoricoEstudo> historicos;
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Pontuacao pontuacao;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<PacoteComprado> pacotesComprados;
 
     public Usuario(Long id) {

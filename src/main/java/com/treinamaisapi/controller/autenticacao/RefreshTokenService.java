@@ -1,5 +1,6 @@
 package com.treinamaisapi.controller.autenticacao;
 
+import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.entity.refreshToken.RefreshToken;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.repository.RefreshTokenRepository;
@@ -31,13 +32,13 @@ public class RefreshTokenService {
 
     public RefreshToken validar(String token) {
         RefreshToken refresh = repository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Refresh token inválido"));
+                .orElseThrow(() -> new BusinessException("Refresh token inválido"));
 
         if (refresh.isRevogado())
-            throw new RuntimeException("Refresh token revogado");
+            throw new BusinessException("Refresh token revogado");
 
         if (refresh.getExpiracao().isBefore(LocalDateTime.now()))
-            throw new RuntimeException("Refresh token expirado");
+            throw new BusinessException("Refresh token expirado");
 
         return refresh;
     }

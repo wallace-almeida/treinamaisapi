@@ -2,8 +2,8 @@ package com.treinamaisapi.jwt;
 
 import java.io.IOException;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.NonNull;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -28,6 +28,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.contains("/auth/login")
                 || path.contains("/auth/refresh");
+        // se quiser liberar reset de senha sem auth, pode adicionar:
+        // || path.contains("/auth/solicitar")
+        // || path.contains("/auth/confirmar-codigo")
+        // || path.contains("/auth/redefinir");
     }
 
     @Override
@@ -47,6 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt = authHeader.substring(7);
 
         try {
+            // garante que é um access token (e não refresh)
             if (!jwtService.isAccessToken(jwt)) {
                 filterChain.doFilter(request, response);
                 return;
@@ -76,19 +81,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
 
-        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("""
-                {
-                  "status": 401,
-                  "error": "AUTH_ERROR",
-                  "message": "Token expirado"
-                }
-                """);
+        } catch (ExpiredJwtException ex) {
+            escreverErro(response, 401, "AUTH_ERROR", "Token expirado");
+            return;
+        } catch (JwtException ex) {
+            // qualquer problema de assinatura, estrutura, etc.
+            escreverErro(response, 401, "AUTH_ERROR", "Token inválido");
             return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void escreverErro(HttpServletResponse response,
+                              int status,
+                              String error,
+                              String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("""
+            {
+              "status": %d,
+              "error": "%s",
+              "message": "%s"
+            }
+            """.formatted(status, error, message));
     }
 }
