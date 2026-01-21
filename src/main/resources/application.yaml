@@ -91,18 +91,23 @@ ambiente:
 ---
 spring:
   profiles:
-    active: local  # Ajuste o perfil ativo
+    active: local
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/treinamais
+    username: treinamais_user
+    password: 24071602
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: update  # Isso pode ser "update" ou "create"
-  datasource:
-    url: jdbc:mysql://localhost:3306/treinamais
-    driverClassName: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 24071602
+      ddl-auto: update
     properties:
-      hibernate.format_sql: true  # Corrigido o formato
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
 mercadopago:
   access-token: ${MP_ACCESS_TOKEN_SANDBOX}
   public-key: ${MP_PUBLIC_KEY_SANDBOX}

@@ -120,7 +120,13 @@ public class CartaoService {
         // Contagens atualizadas
         int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(usuarioId));
 
-        int revisadosHoje = Math.toIntExact(cartaoRepository.contarRevisadosHoje(usuarioId));
+        LocalDateTime inicio = java.time.LocalDate.now().atStartOfDay();
+        LocalDateTime fim = inicio.plusDays(1);
+
+        int revisadosHoje = Math.toIntExact(
+                cartaoRepository.contarRevisadosHoje(usuarioId, inicio, fim)
+        );
+
 
         // Buscar próximo cartão com paginação para evitar erro
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(
@@ -152,8 +158,13 @@ public class CartaoService {
 
         int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(userId));
 
+        LocalDateTime inicio = java.time.LocalDate.now().atStartOfDay();
+        LocalDateTime fim = inicio.plusDays(1);
 
-        int revisadosHoje = Math.toIntExact(cartaoRepository.contarRevisadosHoje(userId));
+        int revisadosHoje = Math.toIntExact(
+                cartaoRepository.contarRevisadosHoje(userId, inicio, fim)
+        );
+
 
 
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(

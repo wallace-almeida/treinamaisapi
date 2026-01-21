@@ -55,7 +55,7 @@ public class UserService {
                 .nome(request.getNome())
                 .email(request.getEmail())
                 .senha(passwordEncoder.encode(request.getSenha()))
-                .avatar("avatar_01")
+                .avatar("avatar_01") // mudar depois
                 .build();
 
         usuarioRepository.save(usuario);
