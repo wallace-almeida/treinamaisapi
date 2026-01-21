@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -26,12 +27,13 @@ public interface CartaoRepository extends JpaRepository<Cartao, Long>, JpaSpecif
     boolean existsByUsuarioIdAndQuestaoId(Long usuarioId, Long questaoId);
 
     @Query("""
-        SELECT COUNT(c)
-        FROM Cartao c
-        WHERE c.usuario.id = :usuarioId
-          AND (c.proximaRevisao IS NULL OR c.proximaRevisao <= CURRENT_TIMESTAMP)
-    """)
-    int contarPendentesHoje(Long usuarioId);
+    SELECT COUNT(c)
+    FROM Cartao c
+    WHERE c.usuario.id = :usuarioId
+      AND (c.proximaRevisao IS NULL OR c.proximaRevisao <= CURRENT_TIMESTAMP)
+""")
+    Long contarPendentesHoje(@Param("usuarioId") Long usuarioId);
+
 
     @Query("""
         SELECT COUNT(c)

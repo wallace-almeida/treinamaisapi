@@ -118,8 +118,9 @@ public class CartaoService {
         );
 
         // Contagens atualizadas
-        int pendentesHoje = cartaoRepository.contarPendentesHoje(usuarioId);
-        int revisadosHoje = cartaoRepository.contarRevisadosHoje(usuarioId);
+        int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(usuarioId));
+
+        int revisadosHoje = Math.toIntExact(cartaoRepository.contarRevisadosHoje(usuarioId));
 
         // Buscar próximo cartão com paginação para evitar erro
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(
@@ -149,8 +150,11 @@ public class CartaoService {
 
     public FlashcardEstudoResponse buscarProximoParaEstudo(Long userId) {
 
-        int pendentesHoje = cartaoRepository.contarPendentesHoje(userId);
-        int revisadosHoje = cartaoRepository.contarRevisadosHoje(userId);
+        int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(userId));
+
+
+        int revisadosHoje = Math.toIntExact(cartaoRepository.contarRevisadosHoje(userId));
+
 
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(
                 userId,

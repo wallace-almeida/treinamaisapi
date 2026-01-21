@@ -23,7 +23,7 @@ public class FlashCardDashBoardService {
 
     public FlashcardsDashboardResponse dashboard(Long usuarioId) {
 
-        int pendentesHoje = cartaoRepository.contarPendentesHoje(usuarioId);
+        int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(usuarioId));
         List<FlashcardBaralhoResumo> baralhos = baralhoRepository.listarResumo(usuarioId);
 
         int totalCartoes = baralhos.stream()
