@@ -23,3 +23,4 @@ COPY --from=build /app/target/*.jar app.jar
 
 # Define o comando padrão
 ENTRYPOINT ["java","-jar","/app/app.jar"]
+
