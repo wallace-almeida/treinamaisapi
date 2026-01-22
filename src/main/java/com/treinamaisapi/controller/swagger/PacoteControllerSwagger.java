@@ -39,8 +39,11 @@ public interface PacoteControllerSwagger {
     @GetMapping("/concurso/{concursoId}")
     ResponseEntity<List<Pacote>> listarPorConcurso(@PathVariable Long concursoId);
 
+
     @GetMapping("/catalogo")
-    ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo();
+    ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo(
+            @AuthenticationPrincipal Usuario usuarioAutenticado
+    );
 
     // ✅ Compra direta (sem meio de pagamento)
     @PostMapping("/pacote/{pacoteId}/compra-direta")

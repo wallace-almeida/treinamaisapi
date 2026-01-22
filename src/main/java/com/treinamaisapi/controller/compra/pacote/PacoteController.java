@@ -61,8 +61,11 @@ public class PacoteController implements PacoteControllerSwagger {
 
     @GetMapping("/catalogo")
     @Override
-    public ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo() {
-        return ResponseEntity.ok(pacoteService.listarCatalogo());
+    public ResponseEntity<List<CatalogoPacoteDTO>> listarCatalogo(
+            @AuthenticationPrincipal Usuario usuarioAutenticado
+    ) {
+        Long usuarioId = (usuarioAutenticado != null) ? usuarioAutenticado.getId() : null;
+        return ResponseEntity.ok(pacoteService.listarCatalogo(usuarioId));
     }
 
 

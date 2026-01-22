@@ -16,4 +16,5 @@ public class CatalogoPacoteDTO {
     private String concursoNome;
     private List<String> beneficios; // mapeado dos temas
     private Boolean maisPopular; // destaque para UI
+    private Boolean jaAdquirido;
 }

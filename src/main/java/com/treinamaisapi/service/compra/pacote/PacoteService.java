@@ -8,6 +8,7 @@ import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.Concurso;
 import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
+import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.tema.Tema;
@@ -33,6 +34,7 @@ public class PacoteService {
     private final ConcursoRepository concursoRepository;
     private final ConcursoService concursoService;
     private final TemaRepository temaRepository;
+    private  final PacoteCompradoRepository pacoteCompradoRepository;
 
     @Transactional
     public PacoteResponse criarPacote(PacoteRequest request) {
@@ -152,8 +154,18 @@ public class PacoteService {
 
 // pacotes para a tela de planos
 @Transactional(readOnly = true)
-public List<CatalogoPacoteDTO> listarCatalogo() {
-    List<Pacote> pacotes = pacoteRepository.findByAtivoTrue(); // todos pacotes ativos
+public List<CatalogoPacoteDTO> listarCatalogo(Long usuarioId) {
+    List<Pacote> pacotes = pacoteRepository.findByAtivoTrue();
+
+    java.util.Set<Long> idsComprados = java.util.Collections.emptySet();
+
+    if (usuarioId != null) {
+        idsComprados = new java.util.HashSet<>(
+                pacoteCompradoRepository.findPacoteIdsAtivosByUsuarioAndStatus(usuarioId, StatusCompra.APROVADA)
+        );
+    }
+
+    final var idsFinal = idsComprados;
 
     return pacotes.stream()
             .map(p -> CatalogoPacoteDTO.builder()
@@ -165,9 +177,12 @@ public List<CatalogoPacoteDTO> listarCatalogo() {
                     .concursoNome(p.getConcurso().getNome())
                     .beneficios(p.getTemas().stream().map(Tema::getNome).toList())
                     .maisPopular(definirMaisPopular(p))
+                    .jaAdquirido(usuarioId != null && idsFinal.contains(p.getId()))
                     .build())
             .toList();
 }
+
+
 
     private Boolean definirMaisPopular(Pacote pacote) {
         // Critério simples: pacotes acima de R$49,90 são mais populares (exemplo)

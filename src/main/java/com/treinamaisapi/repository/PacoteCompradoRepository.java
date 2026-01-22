@@ -41,6 +41,15 @@ public interface PacoteCompradoRepository extends JpaRepository<PacoteComprado, 
             StatusCompra status
     );
 
+    @Query("""
+select pc.pacote.id
+from PacoteComprado pc
+where pc.usuario.id = :usuarioId
+  and pc.ativo = true
+  and pc.status = :status
+""")
+    List<Long> findPacoteIdsAtivosByUsuarioAndStatus(Long usuarioId, StatusCompra status);
+
 
     Optional<PacoteComprado> findByPixTxId(String pixTxId);
 }
