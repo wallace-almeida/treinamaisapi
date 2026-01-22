@@ -18,7 +18,6 @@ RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 WORKDIR /app
-
 # Copia o .jar do estágio anterior
 COPY --from=build /app/target/*.jar app.jar
 
