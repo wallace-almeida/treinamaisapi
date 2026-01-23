@@ -85,10 +85,14 @@ public class CartaoService {
         int repeticoes = Optional.ofNullable(c.getRepeticoes()).orElse(0);
         double ef = Optional.ofNullable(c.getFatorFacilidade()).orElse(2.5);
 
-        // Algoritmo SM-2 (Ajustado)
+        // Algoritmo SM-2 (Ajustado) + Regra de 20 min para < 3
         if (qualidade < 3) {
             repeticoes = 0;
             c.setIntervaloDias(0);
+
+            // ✅ volta depois (evita repetir imediatamente)
+            c.setProximaRevisao(agora.plusMinutes(20));
+
         } else {
             if (repeticoes == 0) {
                 c.setIntervaloDias(1);
@@ -100,13 +104,18 @@ public class CartaoService {
             }
 
             repeticoes++;
-            ef = Math.max(1.3, ef + (0.1 - (5 - qualidade) * (0.08 + (5 - qualidade) * 0.02)));
+            ef = Math.max(
+                    1.3,
+                    ef + (0.1 - (5 - qualidade) * (0.08 + (5 - qualidade) * 0.02))
+            );
+
+            // ✅ revisão normal (em dias)
+            c.setProximaRevisao(agora.plusDays(c.getIntervaloDias()));
         }
 
         c.setRepeticoes(repeticoes);
         c.setFatorFacilidade(ef);
         c.setUltimaRevisao(agora);
-        c.setProximaRevisao(agora.plusDays(c.getIntervaloDias()));
 
         cartaoRepository.save(c);
 
@@ -127,8 +136,7 @@ public class CartaoService {
                 cartaoRepository.contarRevisadosHoje(usuarioId, inicio, fim)
         );
 
-
-        // Buscar próximo cartão com paginação para evitar erro
+        // Buscar próximo cartão (PageRequest para 1)
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(
                 usuarioId,
                 LocalDateTime.now(),
@@ -153,6 +161,7 @@ public class CartaoService {
                 calcularMetaPercentual(pendentesHoje, revisadosHoje)
         ));
     }
+
 
     public FlashcardEstudoResponse buscarProximoParaEstudo(Long userId) {
 
