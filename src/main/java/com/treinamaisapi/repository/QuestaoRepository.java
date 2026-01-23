@@ -1,6 +1,9 @@
 package com.treinamaisapi.repository;
 
 
+
+import com.treinamaisapi.common.filtroAuxil.BancaPorPacoteProjection;
+import com.treinamaisapi.common.filtroAuxil.NivelPorPacoteProjection;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.questoes.Questao;
@@ -39,6 +42,40 @@ public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpec
             @Param("banca") String banca,
             @Param("limit") int limit
     );
+
+
+    @Query("""
+        select
+            p.id as pacoteId,
+            q.banca as banca
+        from Questao q
+        join q.subcapitulo s
+        join s.capitulo c
+        join c.tema t
+        join t.pacotes p
+        where p.id in :pacoteIds
+          and q.banca is not null
+        group by p.id, q.banca
+        order by p.id, q.banca
+    """)
+    List<BancaPorPacoteProjection> listarBancasPorPacotes(@Param("pacoteIds") List<Long> pacoteIds);
+
+    @Query("""
+        select
+            p.id as pacoteId,
+            cast(q.nivelDificuldade as string) as nivel
+        from Questao q
+        join q.subcapitulo s
+        join s.capitulo c
+        join c.tema t
+        join t.pacotes p
+        where p.id in :pacoteIds
+          and q.nivelDificuldade is not null
+        group by p.id, q.nivelDificuldade
+        order by p.id, q.nivelDificuldade
+    """)
+    List<NivelPorPacoteProjection> listarNiveisPorPacotes(@Param("pacoteIds") List<Long> pacoteIds);
+
 
 
 }

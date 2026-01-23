@@ -12,10 +12,15 @@ import com.treinamaisapi.common.dto.simulado.request.RespostaSimuladoRequest;
 import com.treinamaisapi.common.dto.simulado.response.*;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
+import com.treinamaisapi.common.filtroAuxil.BancaPorPacoteProjection;
+import com.treinamaisapi.common.filtroAuxil.FiltroArvoreLinhaProjection;
+import com.treinamaisapi.common.filtroAuxil.NivelPorPacoteProjection;
+import com.treinamaisapi.common.filtroAuxil.PacoteHeaderProjection;
 import com.treinamaisapi.entity.baralho.Baralho;
 import com.treinamaisapi.entity.cartao.Cartao;
 import com.treinamaisapi.entity.enums.StatusSimulado;
 import com.treinamaisapi.entity.enums.TipoAtividade;
+import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.historico_estudo.HistoricoEstudo;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.questao_historico_usuario.QuestaoHistoricoUsuario;
@@ -63,6 +68,7 @@ public class SimuladoService {
     private final GamificacaoService gamificacaoService;
     private final CartaoRepository cartaoRepository;
     private final BaralhoRepository baralhoRepository;
+    private  final PacoteFiltroRepository pacoteFiltroRepository;
 
 
     @Transactional
@@ -464,24 +470,102 @@ public class SimuladoService {
     }
 
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PacoteFiltroSimuladoDTO> listarFiltrosPorUsuario(Long usuarioId) {
 
-        List<PacoteComprado> pacotesAtivos = pacoteCompradoRepository.findByUsuarioIdAndAtivoTrue(usuarioId);
+        // 1) IDs dos pacotes ativos (leve e rápido)
+        List<Long> pacoteIds = pacoteCompradoRepository
+                .findPacoteIdsAtivosByUsuarioAndStatus(usuarioId, StatusCompra.APROVADA);
 
-        return pacotesAtivos.stream().map(pc -> {
-            var pacote = pc.getPacote();
+        if (pacoteIds.isEmpty()) return List.of();
 
-            // 🔹 Monta temas, capítulos e subcapítulos
-            List<TemaFiltroDTO> temas = pacote.getTemas().stream().map(tema -> TemaFiltroDTO.builder().id(tema.getId()).nome(tema.getNome()).capitulos(tema.getCapitulos().stream().map(cap -> CapituloFiltroDTO.builder().id(cap.getId()).nome(cap.getNome()).subcapitulos(cap.getSubcapitulos().stream().map(sub -> new SubcapituloFiltroDTO(sub.getId(), sub.getNome())).toList()).build()).toList()).build()).toList();
+        // 2) Headers + árvore
+        List<PacoteHeaderProjection> headers = pacoteFiltroRepository.listarHeaders(pacoteIds);
+        List<FiltroArvoreLinhaProjection> linhas = pacoteFiltroRepository.listarArvoreFiltros(pacoteIds);
 
-            // 🔹 Coleta bancas e níveis disponíveis (a partir das questões)
-            List<String> bancas = pacote.getTemas().stream().flatMap(t -> t.getCapitulos().stream()).flatMap(c -> c.getSubcapitulos().stream()).flatMap(s -> s.getQuestoes().stream()).map(Questao::getBanca).filter(Objects::nonNull).distinct().toList();
+        // 3) Bancas e níveis (distinct no banco)
+        List<BancaPorPacoteProjection> bancasRows = questaoRepository.listarBancasPorPacotes(pacoteIds);
+        List<NivelPorPacoteProjection> niveisRows = questaoRepository.listarNiveisPorPacotes(pacoteIds);
 
-            List<String> niveis = pacote.getTemas().stream().flatMap(t -> t.getCapitulos().stream()).flatMap(c -> c.getSubcapitulos().stream()).flatMap(s -> s.getQuestoes().stream()).map(q -> q.getNivelDificuldade().name()).distinct().toList();
+        Map<Long, List<String>> bancasPorPacote = new HashMap<>();
+        for (BancaPorPacoteProjection r : bancasRows) {
+            bancasPorPacote
+                    .computeIfAbsent(r.getPacoteId(), k -> new ArrayList<>())
+                    .add(r.getBanca());
+        }
 
-            return PacoteFiltroSimuladoDTO.builder().pacoteId(pacote.getId()).nomePacote(pacote.getNome()).concursoId(pacote.getConcurso().getId()).nomeConcurso(pacote.getConcurso().getNome()).versao(pacote.getVersao()).temas(temas).bancasDisponiveis(bancas).niveisDisponiveis(niveis).build();
-        }).toList();
+        Map<Long, List<String>> niveisPorPacote = new HashMap<>();
+        for (NivelPorPacoteProjection r : niveisRows) {
+            niveisPorPacote
+                    .computeIfAbsent(r.getPacoteId(), k -> new ArrayList<>())
+                    .add(r.getNivel().name()); // ✅ converte enum -> String
+        }
+
+
+        // 4) Cria DTOs base por pacote (LinkedHashMap mantém ordem)
+        Map<Long, PacoteFiltroSimuladoDTO> pacotesMap = new LinkedHashMap<>();
+        for (PacoteHeaderProjection h : headers) {
+            pacotesMap.put(h.getPacoteId(),
+                    PacoteFiltroSimuladoDTO.builder()
+                            .pacoteId(h.getPacoteId())
+                            .nomePacote(h.getNomePacote())
+                            .versao(h.getVersao())
+                            .concursoId(h.getConcursoId())
+                            .nomeConcurso(h.getNomeConcurso())
+                            .temas(new ArrayList<>())
+                            .bancasDisponiveis(bancasPorPacote.getOrDefault(h.getPacoteId(), List.of()))
+                            .niveisDisponiveis(niveisPorPacote.getOrDefault(h.getPacoteId(), List.of()))
+                            .build()
+            );
+        }
+
+        // 5) Monta árvore com caches (O(n), sem ficar varrendo lista)
+        // cache: pacoteId -> temaId -> TemaFiltroDTO
+        Map<Long, Map<Long, TemaFiltroDTO>> temaCache = new HashMap<>();
+        // cache: (pacoteId,temaId) -> capId -> CapituloFiltroDTO
+        Map<String, Map<Long, CapituloFiltroDTO>> capCache = new HashMap<>();
+
+        for (FiltroArvoreLinhaProjection l : linhas) {
+            PacoteFiltroSimuladoDTO pacoteDTO = pacotesMap.get(l.getPacoteId());
+            if (pacoteDTO == null) continue;
+
+            Map<Long, TemaFiltroDTO> temasDoPacote =
+                    temaCache.computeIfAbsent(l.getPacoteId(), k -> new LinkedHashMap<>());
+
+            TemaFiltroDTO temaDTO = temasDoPacote.get(l.getTemaId());
+            if (temaDTO == null) {
+                temaDTO = TemaFiltroDTO.builder()
+                        .id(l.getTemaId())
+                        .nome(l.getTemaNome())
+                        .capitulos(new ArrayList<>())
+                        .build();
+                temasDoPacote.put(l.getTemaId(), temaDTO);
+                pacoteDTO.getTemas().add(temaDTO);
+            }
+
+            String key = l.getPacoteId() + ":" + l.getTemaId();
+            Map<Long, CapituloFiltroDTO> capsDoTema =
+                    capCache.computeIfAbsent(key, k -> new LinkedHashMap<>());
+
+            CapituloFiltroDTO capDTO = capsDoTema.get(l.getCapituloId());
+            if (capDTO == null) {
+                capDTO = CapituloFiltroDTO.builder()
+                        .id(l.getCapituloId())
+                        .nome(l.getCapituloNome())
+                        .subcapitulos(new ArrayList<>())
+                        .build();
+                capsDoTema.put(l.getCapituloId(), capDTO);
+                temaDTO.getCapitulos().add(capDTO);
+            }
+
+            // adiciona subcapítulo
+            capDTO.getSubcapitulos().add(new SubcapituloFiltroDTO(
+                    l.getSubcapituloId(),
+                    l.getSubcapituloNome()
+            ));
+        }
+
+        return new ArrayList<>(pacotesMap.values());
     }
 
 
