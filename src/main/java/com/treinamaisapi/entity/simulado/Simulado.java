@@ -47,20 +47,50 @@ public class Simulado {
     private Double pontuacaoFinal;
 
     // Filtros usados
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "simulado_tema_ids",
+            joinColumns = @JoinColumn(name = "simulado_id")
+    )
+    @Column(name = "tema_ids")
     private List<Long> temaIds;
 
-    @ElementCollection
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "simulado_capitulo_ids",
+            joinColumns = @JoinColumn(name = "simulado_id")
+    )
+    @Column(name = "capitulo_ids")
     private List<Long> capituloIds;
 
-    @ElementCollection
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "simulado_subcapitulo_ids",
+            joinColumns = @JoinColumn(name = "simulado_id")
+    )
+    @Column(name = "subcapitulo_ids")
     private List<Long> subcapituloIds;
 
-    @ElementCollection
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "simulado_bancas",
+            joinColumns = @JoinColumn(name = "simulado_id")
+    )
+    @Column(name = "bancas", length = 255)
     private List<String> bancas;
 
-    @ElementCollection
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "simulado_niveis",
+            joinColumns = @JoinColumn(name = "simulado_id")
+    )
+    @Column(name = "niveis", length = 255)
     private List<String> niveis;
+
 
     // Nova: perfil inteligente
     private Boolean inteligente;

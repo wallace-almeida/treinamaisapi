@@ -4,6 +4,7 @@ package com.treinamaisapi.repository;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.questoes_respondida.QuestaoSimulado;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -56,5 +57,19 @@ public interface QuestaoSimuladoRepository extends JpaRepository<QuestaoSimulado
 
     // ✅ TOTAL REAL DE ACERTOS
     int countBySimuladoIdAndCorretaTrue(Long simuladoId);
+
+    @EntityGraph(attributePaths = {"questao"})
+    List<QuestaoSimulado> findWithQuestaoBySimulado_IdAndQuestao_IdIn(Long simuladoId, List<Long> questaoIds);
+
+
+    @EntityGraph(attributePaths = {
+            "questao",
+            "questao.subcapitulo",
+            "questao.subcapitulo.capitulo",
+            "questao.subcapitulo.capitulo.tema"
+    })
+    List<QuestaoSimulado> findWithArvoreBySimulado_Id(Long simuladoId);
+
+
 
 }

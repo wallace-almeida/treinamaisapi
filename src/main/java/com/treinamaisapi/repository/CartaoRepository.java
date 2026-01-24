@@ -47,4 +47,15 @@ public interface CartaoRepository extends JpaRepository<Cartao, Long>, JpaSpecif
     List<Cartao> buscarProximoParaEstudo(@Param("usuarioId") Long usuarioId,
                                          @Param("data") LocalDateTime data,
                                          Pageable pageable);
+
+
+    @Query("""
+  select c.questao.id
+  from Cartao c
+  where c.usuario.id = :usuarioId
+    and c.questao.id in :questaoIds
+""")
+    List<Long> findQuestaoIdsQueJaTemCartao(@Param("usuarioId") Long usuarioId,
+                                            @Param("questaoIds") List<Long> questaoIds);
+
 }

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface PacoteFiltroRepository extends JpaRepository<Pacote, Long>, JpaSpecificationExecutor<Pacote>,  PagingAndSortingRepository<Pacote, Long>{
+public interface PacoteFiltroRepository extends JpaRepository<Pacote, Long>, JpaSpecificationExecutor<Pacote> {
     @Query("""
         select
             p.id as pacoteId,

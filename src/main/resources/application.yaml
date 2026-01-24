@@ -107,11 +107,16 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
 mercadopago:
   access-token: ${MP_ACCESS_TOKEN_SANDBOX}
   public-key: ${MP_PUBLIC_KEY_SANDBOX}
   webhook-url: "https://palpitant-tanya-rightly.ngrok-free.dev/treinamais-api/api/comprar/pix"
+
 ambiente:
   nmAmbiente: DESENVOLVIMENTO-HML
 logging:

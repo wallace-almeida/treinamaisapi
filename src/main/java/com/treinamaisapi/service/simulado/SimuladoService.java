@@ -47,6 +47,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -274,23 +275,92 @@ public class SimuladoService {
             throw new BusinessException("Simulado já finalizado");
         }
 
-        // Atualiza respostas do usuário
-        for (RespostaQuestaoSimulado r : request.getRespostas()) {
-            QuestaoSimulado qs = questaoSimuladoRepository
-                    .findBySimuladoIdAndQuestaoId(simuladoId, r.getQuestaoId())
-                    .orElseThrow(() -> new NotFoundException("Questão não encontrada"));
-
-            boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(r.getRespostaUsuario());
-
-            qs.setRespostaUsuario(r.getRespostaUsuario());
-            qs.setCorreta(correta);
-            qs.setRespondida(true);
-            qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
-
-            questaoSimuladoRepository.save(qs);
+        if (request == null || request.getRespostas() == null) {
+            throw new BusinessException("Lista de respostas não informada");
         }
 
-        // Finaliza simulado normalmente
+        // (Opcional) garantir que o simuladoId do body bate com o path
+        if (request.getSimuladoId() != null && !request.getSimuladoId().equals(simuladoId)) {
+            throw new BusinessException("simuladoId do body difere do simuladoId da URL");
+        }
+
+        // 1) ids que chegaram
+        List<Long> questaoIds = request.getRespostas().stream()
+                .map(RespostaQuestaoSimulado::getQuestaoId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (questaoIds.isEmpty()) {
+            throw new BusinessException("Nenhuma questão informada");
+        }
+
+        // 2) busca tudo em lote JÁ trazendo Questao (mata N+1)
+        List<QuestaoSimulado> registros = questaoSimuladoRepository
+                .findWithQuestaoBySimulado_IdAndQuestao_IdIn(simuladoId, questaoIds);
+
+        // valida se veio tudo (evita resposta pra questão que não pertence ao simulado)
+        if (registros.size() != questaoIds.size()) {
+            Set<Long> encontrados = registros.stream()
+                    .map(qs -> qs.getQuestao().getId())
+                    .collect(Collectors.toSet());
+
+            List<Long> faltando = questaoIds.stream()
+                    .filter(id -> !encontrados.contains(id))
+                    .toList();
+
+            throw new NotFoundException("Questões não encontradas no simulado: " + faltando);
+        }
+
+        // Map questaoId -> QuestaoSimulado
+        Map<Long, QuestaoSimulado> porQuestaoId = registros.stream()
+                .collect(Collectors.toMap(qs -> qs.getQuestao().getId(), Function.identity()));
+
+        // 3) aplica as respostas
+        for (RespostaQuestaoSimulado r : request.getRespostas()) {
+            Long qId = r.getQuestaoId();
+            if (qId == null) continue;
+
+            QuestaoSimulado qs = porQuestaoId.get(qId);
+            if (qs == null) {
+                throw new NotFoundException("Questão não encontrada: " + qId);
+            }
+
+            String resp = r.getRespostaUsuario();
+            resp = (resp == null) ? null : resp.trim();
+
+            // ✅ não respondida
+            if (resp == null || resp.isEmpty()) {
+                qs.setRespostaUsuario(null);
+                qs.setRespondida(false);
+                qs.setCorreta(null); // mantém semântico com seu modelo
+                qs.setPontuacaoObtida(0.0);
+                continue;
+            }
+
+            // ✅ valida alternativa (A/B/C/D)
+            String respUpper = resp.toUpperCase(Locale.ROOT);
+            boolean alternativaValida = respUpper.equals("A")
+                    || respUpper.equals("B")
+                    || respUpper.equals("C")
+                    || respUpper.equals("D");
+
+            if (!alternativaValida) {
+                throw new BusinessException("Resposta inválida para questaoId=" + qId + ": " + resp);
+            }
+
+            boolean correta = qs.getQuestao().getRespostaCorreta().equalsIgnoreCase(respUpper);
+
+            qs.setRespostaUsuario(respUpper);
+            qs.setRespondida(true);
+            qs.setCorreta(correta);
+            qs.setPontuacaoObtida(correta ? 1.0 : 0.0);
+        }
+
+        // 4) salva tudo de uma vez
+        questaoSimuladoRepository.saveAll(registros);
+
+        // 5) finaliza simulado
         return finalizarSimulado(simulado, false);
     }
 
@@ -331,14 +401,21 @@ public class SimuladoService {
                 ? simulado.getDataCriacao().plusMinutes(simulado.getTempoDuracao())
                 : agora;
 
-        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findBySimuladoId(simulado.getId());
-        List<QuestaoHistoricoUsuario> historicos = new ArrayList<>();
+        // ✅ puxa árvore inteira (evita N+1 de tema/subcap)
+        List<QuestaoSimulado> questoes = questaoSimuladoRepository.findWithArvoreBySimulado_Id(simulado.getId());
+
+        List<QuestaoHistoricoUsuario> historicos = new ArrayList<>(questoes.size());
         int acertos = 0;
 
+        // 1) Normaliza não respondidas e monta histórico + lista de erradas respondidas
+        List<Long> erradasRespondidas = new ArrayList<>();
+
         for (QuestaoSimulado qs : questoes) {
-            if (!qs.getRespondida()) {
-                qs.setRespondida(true);
-                qs.setCorreta(false);
+            boolean foiRespondida = Boolean.TRUE.equals(qs.getRespondida());
+
+            if (!foiRespondida) {
+                qs.setRespondida(false);
+                qs.setCorreta(null);
                 qs.setRespostaUsuario(null);
                 qs.setPontuacaoObtida(0.0);
             }
@@ -361,9 +438,34 @@ public class SimuladoService {
                             .build()
             );
 
-            // Cartão apenas para erros
-            if (!correta && !cartaoRepository.existsByUsuarioIdAndQuestaoId(usuarioId, qs.getQuestao().getId())) {
-                Baralho baralho = baralhoRepository.findByUsuarioIdAndTemaId(usuarioId, tema.getId())
+            if (foiRespondida && !correta) {
+                erradasRespondidas.add(qs.getQuestao().getId());
+            }
+        }
+
+        // 2) cartões existentes (1 query)
+        Set<Long> jaTemCartao = erradasRespondidas.isEmpty()
+                ? Set.of()
+                : new HashSet<>(cartaoRepository.findQuestaoIdsQueJaTemCartao(usuarioId, erradasRespondidas));
+
+        // 3) cache baralho por tema
+        Map<Long, Baralho> baralhoPorTemaId = new HashMap<>();
+
+        // 4) cria cartões só para erradas respondidas sem cartão
+        for (QuestaoSimulado qs : questoes) {
+            boolean foiRespondida = Boolean.TRUE.equals(qs.getRespondida());
+            boolean correta = Boolean.TRUE.equals(qs.getCorreta());
+
+            if (!(foiRespondida && !correta)) continue;
+
+            Long questaoId = qs.getQuestao().getId();
+            if (jaTemCartao.contains(questaoId)) continue;
+
+            Tema tema = qs.getQuestao().getSubcapitulo().getCapitulo().getTema();
+            Long temaId = tema.getId();
+
+            Baralho baralho = baralhoPorTemaId.computeIfAbsent(temaId, id -> {
+                return baralhoRepository.findByUsuarioIdAndTemaId(usuarioId, id)
                         .orElseGet(() -> baralhoRepository.save(
                                 Baralho.builder()
                                         .titulo("Erros em " + tema.getNome())
@@ -371,30 +473,29 @@ public class SimuladoService {
                                         .usuario(simulado.getUsuario())
                                         .build()
                         ));
+            });
 
-                Cartao cartao = Cartao.builder()
-                        .frente(qs.getQuestao().getEnunciado())
-                        .verso(qs.getQuestao().getExplicacao())
-                        .tema(tema)
-                        .usuario(simulado.getUsuario())
-                        .questao(qs.getQuestao())
-                        .baralho(baralho)
-                        .precisaRevisar(true)
-                        .build();
-
-                cartaoRepository.save(cartao);
-            }
+            cartaoRepository.save(
+                    Cartao.builder()
+                            .frente(qs.getQuestao().getEnunciado())
+                            .verso(qs.getQuestao().getExplicacao())
+                            .tema(tema)
+                            .usuario(simulado.getUsuario())
+                            .questao(qs.getQuestao())
+                            .baralho(baralho)
+                            .precisaRevisar(true)
+                            .build()
+            );
         }
 
+        // persiste
         questaoSimuladoRepository.saveAll(questoes);
         questaoHistoricoUsuarioRepository.saveAll(historicos);
 
         double pontuacaoFinal = (acertos * 100.0) / questoes.size();
 
-        // Calcula tempo de estudo
         long tempoEstudoMinutos;
         if (porTempo && simulado.getTempoDuracao() != null) {
-            // Finalização automática: usa tempo planejado
             tempoEstudoMinutos = simulado.getTempoDuracao();
         } else {
             tempoEstudoMinutos = Math.max(0, Duration.between(simulado.getDataCriacao(), fimSimulado).toMinutes());
@@ -403,16 +504,13 @@ public class SimuladoService {
             }
         }
 
-        // Atualiza simulado
         simulado.setStatus(StatusSimulado.FINALIZADO);
         simulado.setPontuacaoFinal(pontuacaoFinal);
         simulado.setDataFinalizacao(fimSimulado);
         simuladoRepository.save(simulado);
 
-        // Gamificação
         gamificacaoService.processarConclusaoSimulado(simulado);
 
-        // Histórico geral: atualizar se já existir
         HistoricoEstudo historicoExistente = historicoEstudoRepository
                 .findByUsuarioIdAndReferenciaId(usuarioId, simulado.getId())
                 .orElse(null);
@@ -470,7 +568,7 @@ public class SimuladoService {
     }
 
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<PacoteFiltroSimuladoDTO> listarFiltrosPorUsuario(Long usuarioId) {
 
         // 1) IDs dos pacotes ativos (leve e rápido)
@@ -487,18 +585,21 @@ public class SimuladoService {
         List<BancaPorPacoteProjection> bancasRows = questaoRepository.listarBancasPorPacotes(pacoteIds);
         List<NivelPorPacoteProjection> niveisRows = questaoRepository.listarNiveisPorPacotes(pacoteIds);
 
-        Map<Long, List<String>> bancasPorPacote = new HashMap<>();
+        Map<Long, Set<String>> bancasPorPacote = new HashMap<>();
+
         for (BancaPorPacoteProjection r : bancasRows) {
             bancasPorPacote
-                    .computeIfAbsent(r.getPacoteId(), k -> new ArrayList<>())
+                    .computeIfAbsent(r.getPacoteId(), k -> new LinkedHashSet<>())
                     .add(r.getBanca());
         }
 
-        Map<Long, List<String>> niveisPorPacote = new HashMap<>();
+
+        Map<Long, Set<String>> niveisPorPacote = new HashMap<>();
+
         for (NivelPorPacoteProjection r : niveisRows) {
             niveisPorPacote
-                    .computeIfAbsent(r.getPacoteId(), k -> new ArrayList<>())
-                    .add(r.getNivel().name()); // ✅ converte enum -> String
+                    .computeIfAbsent(r.getPacoteId(), k -> new LinkedHashSet<>())
+                    .add(r.getNivel().name());
         }
 
 
@@ -513,9 +614,19 @@ public class SimuladoService {
                             .concursoId(h.getConcursoId())
                             .nomeConcurso(h.getNomeConcurso())
                             .temas(new ArrayList<>())
-                            .bancasDisponiveis(bancasPorPacote.getOrDefault(h.getPacoteId(), List.of()))
-                            .niveisDisponiveis(niveisPorPacote.getOrDefault(h.getPacoteId(), List.of()))
-                            .build()
+                            .bancasDisponiveis(
+                                    new ArrayList<>(bancasPorPacote.getOrDefault(
+                                            h.getPacoteId(),
+                                            Collections.emptySet()
+                                    ))
+                            )
+                            .niveisDisponiveis(
+                                    new ArrayList<>(niveisPorPacote.getOrDefault(
+                                            h.getPacoteId(),
+                                            Collections.emptySet()
+                                    ))
+                            ).build()
+
             );
         }
 
