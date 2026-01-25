@@ -1,8 +1,10 @@
 spring:
   profiles:
     active: "@spring.profile@"
+
   hateoas:
     use-hal-as-default-json-media-type: false
+
   jackson:
     time-zone: America/Sao_Paulo
     default-property-inclusion: NON_ABSENT
@@ -21,113 +23,141 @@ spring:
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
       mail.smtp.ssl.trust: smtp-relay.brevo.com
-
     brevo:
       mail:
         from: treinamaisapp@gmail.com
 
-  jpa:
-    #database-platform: org.hibernate.dialect.Oracle10gDialect
-    hibernate:
-      ddl-auto: none
-  web:
-    locale: pt_BR
-    resources:
-      add-mappings: true
-  mvc:
-    throw-exception-if-no-handler-found: true
-  main:
-    banner-mode: "off"
-springdoc:
-  swagger-ui:
-    path: swagger
-    use-root-path: true
-security:
-  jwt:
-    secret: ${JWT_SECRET}
-app:
-  version: "@project.version@"
-  name: "@project.name@"
-  description: "@project.description@"
-server:
-  servlet:
-    context-path: /treinamais-api
----
-spring:
-  config:
-    activate:
-      on-profile: prd
-  datasource:
-    url:
-    driverClassName: oracle.jdbc.OracleDriver
-    username:
-    password:
-  sigpes-datasource:
-    url:
-    driverClassName:
-    username:
-    password:
-keycloak:
-  jwkSetUri:
-ambiente:
-  nmAmbiente: PRODUÇÃO
----
-
-spring:
-  config:
-    activate:
-      on-profile: dev
-  datasource:
-    url:
-    driverClassName:
-    username:
-    password:
-keycloak:
-  #jwkSetUri:
-  #jwkSetUri:
-  jwkSetUri:
-ambiente:
-  nmAmbiente: DESENVOLVIMENTO
----
-spring:
-  profiles:
-    active: local
-
+  # ✅ Flyway padrão (vale pra local e prd)
   flyway:
-    enabled: true
+    enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 1
     schemas: public
     validate-on-migrate: true
 
+  jpa:
+    hibernate:
+      ddl-auto: validate  # ✅ não deixe update em prd
+    open-in-view: false  # opcional, mas recomendado
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  web:
+    locale: pt_BR
+    resources:
+      add-mappings: true
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+  main:
+    banner-mode: "off"
+
+springdoc:
+  swagger-ui:
+    path: swagger
+    use-root-path: true
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+app:
+  version: "@project.version@"
+  name: "@project.name@"
+  description: "@project.description@"
+
+server:
+  servlet:
+    context-path: /treinamais-api
+
+# ==========================================================
+# PRD
+# ==========================================================
+---
+spring:
+  config:
+    activate:
+      on-profile: prd
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: validate # update para quando criar na primeira
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        jdbc:
-          batch_size: 50
-        order_inserts: true
-        order_updates: true
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:3}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME:600000}
+      connection-timeout: ${DB_POOL_CONN_TIMEOUT:30000}
 
 mercadopago:
   access-token: ${MP_ACCESS_TOKEN_SANDBOX}
   public-key: ${MP_PUBLIC_KEY_SANDBOX}
-  webhook-url: "https://palpitant-tanya-rightly.ngrok-free.dev/treinamais-api/api/comprar/pix"
+  webhook-url: "https://treinamaisapi.onrender.com/treinamais-api/api/comprar/pix"
+
+ambiente:
+  nmAmbiente: PRODUÇÃO
+
+# ==========================================================
+# DEV (se você usar)
+# ==========================================================
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+
+ambiente:
+  nmAmbiente: DESENVOLVIMENTO
+
+# ==========================================================
+# LOCAL
+# ==========================================================
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      idle-timeout: 30000
+      max-lifetime: 600000
+      connection-timeout: 30000
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+mercadopago:
+  access-token: ${MP_ACCESS_TOKEN_SANDBOX}
+  public-key: ${MP_PUBLIC_KEY_SANDBOX}
+  webhook-url: "https://treinamaisapi.onrender.com/treinamais-api/api/comprar/pix"
 
 ambiente:
   nmAmbiente: DESENVOLVIMENTO-HML
+
 logging:
   level:
     root: info
@@ -138,5 +168,6 @@ logging:
       kafka:
         clients:
           NetworkClient: error
+
 server:
   port: 8094
