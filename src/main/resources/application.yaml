@@ -13,19 +13,10 @@ spring:
       fail-on-ignored-properties: true
 
   mail:
-    host: smtp-relay.brevo.com
-    port: 587
-    username: 9f8ac3001@smtp-brevo.com
-    password: ${BREVO_SMTP_PASSWORD}
-    protocol: smtp
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-      mail.smtp.starttls.required: true
-      mail.smtp.ssl.trust: smtp-relay.brevo.com
     brevo:
       mail:
         from: treinamaisapp@gmail.com
+
 
   # ✅ Flyway padrão (vale pra local e prd)
   flyway:
@@ -76,6 +67,10 @@ server:
   servlet:
     context-path: /treinamais-api
 
+brevo:
+  api:
+    key: ${BREVO_API_KEY:}
+
 # ==========================================================
 # PRD
 # ==========================================================
@@ -84,20 +79,8 @@ spring:
   config:
     activate:
       on-profile: prd
-  mail:
-    host: smtp-relay.brevo.com
-    port: 587
-    username: 9f8ac3001@smtp-brevo.com
-    password: ${BREVO_SMTP_PASSWORD}
-    protocol: smtp
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-      mail.smtp.starttls.required: true
-      mail.smtp.ssl.trust: smtp-relay.brevo.com
-    brevo:
-      mail:
-        from: treinamaisapp@gmail.com
+
+
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
     username: ${DB_USER}
@@ -109,6 +92,7 @@ spring:
       idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
       max-lifetime: ${DB_POOL_MAX_LIFETIME:600000}
       connection-timeout: ${DB_POOL_CONN_TIMEOUT:30000}
+
 
 mercadopago:
   access-token: ${MP_ACCESS_TOKEN_SANDBOX}
