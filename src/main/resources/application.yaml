@@ -84,7 +84,20 @@ spring:
   config:
     activate:
       on-profile: prd
-
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: 9f8ac3001@smtp-brevo.com
+    password: ${BREVO_SMTP_PASSWORD}
+    protocol: smtp
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.ssl.trust: smtp-relay.brevo.com
+    brevo:
+      mail:
+        from: treinamaisapp@gmail.com
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
     username: ${DB_USER}
