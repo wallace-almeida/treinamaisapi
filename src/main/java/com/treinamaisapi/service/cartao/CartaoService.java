@@ -22,13 +22,16 @@ import com.treinamaisapi.repository.CartaoRepository;
 import com.treinamaisapi.repository.TemaRepository;
 import com.treinamaisapi.service.gamificacao.interfac.GamificacaoService;
 import com.treinamaisapi.service.gamificacao.service.GamificacaoServiceImpl;
-import jakarta.transaction.Transactional;
+
+import org.springframework.transaction.annotation.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -163,18 +166,19 @@ public class CartaoService {
     }
 
 
+    @Transactional(readOnly = true)
     public FlashcardEstudoResponse buscarProximoParaEstudo(Long userId) {
 
         int pendentesHoje = Math.toIntExact(cartaoRepository.contarPendentesHoje(userId));
 
-        LocalDateTime inicio = java.time.LocalDate.now().atStartOfDay();
+        LocalDateTime inicio = LocalDate.now().atStartOfDay();
         LocalDateTime fim = inicio.plusDays(1);
 
         int revisadosHoje = Math.toIntExact(
                 cartaoRepository.contarRevisadosHoje(userId, inicio, fim)
         );
 
-
+        int meta = calcularMetaPercentual(pendentesHoje, revisadosHoje);
 
         List<Cartao> result = cartaoRepository.buscarProximoParaEstudo(
                 userId,
@@ -182,24 +186,31 @@ public class CartaoService {
                 PageRequest.of(0, 1)
         );
 
-        Optional<Cartao> cartaoOpt = result.stream().findFirst();
+        if (result.isEmpty()) {
+            return new FlashcardEstudoResponse(
+                    null,
+                    null,
+                    null,
+                    pendentesHoje,
+                    revisadosHoje,
+                    meta
+            );
+        }
 
-        return cartaoOpt.map(c -> new FlashcardEstudoResponse(
+        Cartao c = result.get(0);
+
+        String verso = (c.getQuestao() != null) ? c.getQuestao().getExplicacao() : null;
+
+        return new FlashcardEstudoResponse(
                 c.getId(),
                 c.getFrente(),
-                c.getQuestao().getExplicacao(),
+                verso,
                 pendentesHoje,
                 revisadosHoje,
-                calcularMetaPercentual(pendentesHoje, revisadosHoje)
-        )).orElseGet(() -> new FlashcardEstudoResponse(
-                null,
-                null,
-                null,
-                pendentesHoje,
-                revisadosHoje,
-                calcularMetaPercentual(pendentesHoje, revisadosHoje)
-        ));
+                meta
+        );
     }
+
 
 
 

@@ -2,6 +2,7 @@ package com.treinamaisapi.repository;
 
 import com.treinamaisapi.entity.cartao.Cartao;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -38,15 +39,20 @@ public interface CartaoRepository extends JpaRepository<Cartao, Long>, JpaSpecif
                              @Param("inicio") LocalDateTime inicio,
                              @Param("fim") LocalDateTime fim);
 
+    @EntityGraph(attributePaths = {"questao"})
     @Query("""
-        SELECT c FROM Cartao c
-        WHERE c.usuario.id = :usuarioId
-          AND (c.proximaRevisao IS NULL OR c.proximaRevisao <= :data)
-        ORDER BY c.proximaRevisao ASC
-    """)
-    List<Cartao> buscarProximoParaEstudo(@Param("usuarioId") Long usuarioId,
-                                         @Param("data") LocalDateTime data,
-                                         Pageable pageable);
+  select c
+  from Cartao c
+  where c.usuario.id = :userId
+    and (c.proximaRevisao is null or c.proximaRevisao <= :agora)
+  order by c.proximaRevisao asc nulls first, c.id asc
+""")
+    List<Cartao> buscarProximoParaEstudo(
+            @Param("userId") Long userId,
+            @Param("agora") LocalDateTime agora,
+            Pageable pageable
+    );
+
 
 
     @Query("""
