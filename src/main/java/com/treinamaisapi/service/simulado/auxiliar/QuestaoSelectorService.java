@@ -4,33 +4,37 @@ import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
 import com.treinamaisapi.entity.questoes.Questao;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class QuestaoSelectorService {
 
-    public List<Questao> selecionar(List<Questao> questoes,
-                                    Usuario usuario,
-                                    int quantidade,
-                                    CriarSimuladoRequest request) {
-        // Usuario e request mantidos por enquanto para futura lógica personalizada
-        // (ex.: personalizar seleção com base em preferências, temas, etc.)
+    public List<Long> selecionarIds(List<Long> poolIds, int limite) {
+        if (poolIds == null || poolIds.isEmpty() || limite <= 0) return List.of();
 
-        // garante que trabalhamos com lista mutável e sem duplicatas
-        List<Questao> pool = new ArrayList<>(questoes.stream()
+        // copia mutável
+        List<Long> copia = new ArrayList<>(poolIds);
+        // embaralha (barato, rápido)
+        Collections.shuffle(copia);
+
+        List<Long> selecionadas = copia.stream()
+                .filter(Objects::nonNull)
                 .distinct()
-                .collect(Collectors.toList()));
+                .limit(limite)
+                .toList();
 
-        Collections.shuffle(pool);
+        log.debug("[SELECTOR] selecionarIds. pool={}, limite={}, selecionadas={}",
+                poolIds.size(), limite, selecionadas.size());
 
-        return pool.stream()
-                .limit(quantidade)
-                .collect(Collectors.toList());
+        return selecionadas;
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -26,39 +27,31 @@ public class QuestaoHistoricoService {
      * Remove do conjunto as questões que o usuário respondeu mais recentemente.
      * Não banimos pra sempre, apenas evitamos repetir as últimas N.
      */
-    public List<Questao> filtrarNaoRespondidas(Usuario usuario, List<Questao> questoes) {
+    public List<Long> filtrarIdsNaoRecentes(Usuario usuario, List<Long> ids) {
 
         Long usuarioId = usuario.getId();
-        log.debug("[HISTÓRICO] Iniciando filtro de não respondidas. usuarioId={}, totalQuestoesEntrada={}",
-                usuarioId, questoes.size());
 
-        // Busca só as últimas N questões respondidas
+        if (ids == null || ids.isEmpty()) return List.of();
+
         List<Long> respondidasRecentes = historicoRepo.findUltimasQuestoesPorUsuario(
                 usuarioId,
                 PageRequest.of(0, LIMITE_QUESTOES_RECENTES)
         );
 
-        log.debug("[HISTÓRICO] Últimas questões respondidas encontradas. usuarioId={}, totalRespondidasRecentes={}, ids={}",
-                usuarioId, respondidasRecentes.size(), resumirIds(respondidasRecentes));
+        Set<Long> recentesSet = new HashSet<>(respondidasRecentes);
 
-        Set<Long> respondidasSet = new HashSet<>(respondidasRecentes);
-
-        List<Questao> filtradas = questoes.stream()
-                .filter(q -> q.getId() != null && !respondidasSet.contains(q.getId()))
+        List<Long> filtradas = ids.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> !recentesSet.contains(id))
+                .distinct()
                 .toList();
 
-        log.debug("[HISTÓRICO] Resultado do filtro. usuarioId={}, antes={}, depois={}",
-                usuarioId, questoes.size(), filtradas.size());
+        log.debug("[HISTÓRICO] filtrarIdsNaoRecentes. usuarioId={}, antes={}, recentes={}, depois={}",
+                usuarioId, ids.size(), respondidasRecentes.size(), filtradas.size());
 
         return filtradas;
     }
 
-    // Só pra não poluir log com lista gigante
-    private String resumirIds(List<Long> ids) {
-        int max = Math.min(ids.size(), 10);
-        return ids.stream()
-                .limit(max)
-                .toList()
-                .toString() + (ids.size() > max ? " ... (+" + (ids.size() - max) + ")" : "");
-    }
+
+
 }

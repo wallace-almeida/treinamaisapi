@@ -4,9 +4,11 @@ package com.treinamaisapi.repository;
 
 import com.treinamaisapi.common.filtroAuxil.BancaPorPacoteProjection;
 import com.treinamaisapi.common.filtroAuxil.NivelPorPacoteProjection;
+import com.treinamaisapi.common.filtroAuxil.QuestaoNivelProjection;
 import com.treinamaisapi.entity.capitulo.Capitulo;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.questoes.Questao;
+import com.treinamaisapi.repository.custom.QuestaoRepositoryCustom;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,7 +21,11 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpecificationExecutor<Questao>,  PagingAndSortingRepository<Questao, Long>{
+public interface QuestaoRepository extends
+        JpaRepository<Questao, Long>,
+        JpaSpecificationExecutor<Questao>,
+        QuestaoRepositoryCustom {
+
     @Query(value = """
         SELECT q.id
         FROM questoes q
@@ -31,7 +37,7 @@ public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpec
           AND (:subcapituloIds IS NULL OR sc.id IN (:subcapituloIds))
           AND (:nivel IS NULL OR q.nivel_dificuldade = :nivel)
           AND (:banca IS NULL OR q.banca = :banca)
-        ORDER BY RAND()
+        ORDER BY random()
         LIMIT :limit
         """, nativeQuery = true)
     List<Long> buscarIdsRandomizados(
@@ -77,6 +83,10 @@ public interface QuestaoRepository extends JpaRepository<Questao, Long>, JpaSpec
 
 
 
+    @Query("select q.id as id, q.nivelDificuldade as nivel from Questao q where q.id in :ids")
+    List<QuestaoNivelProjection> findNiveisByIds(@Param("ids") List<Long> ids);
+
+    List<Questao> findByIdIn(List<Long> ids);
 
 
 }

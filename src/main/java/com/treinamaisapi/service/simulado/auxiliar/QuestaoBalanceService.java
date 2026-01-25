@@ -1,79 +1,89 @@
 package com.treinamaisapi.service.simulado.auxiliar;
 
 import com.treinamaisapi.common.dto.simulado.request.CriarSimuladoRequest;
+import com.treinamaisapi.common.filtroAuxil.QuestaoNivelProjection;
 import com.treinamaisapi.entity.enums.NivelDificuldade;
 import com.treinamaisapi.entity.questoes.Questao;
+import com.treinamaisapi.repository.QuestaoRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class QuestaoBalanceService {
 
-    public List<Questao> balancear(List<Questao> questoes, CriarSimuladoRequest request) {
+    private final QuestaoRepository questaoRepository;
 
-        log.debug("[BALANCE] Iniciando balanceamento. totalEntrada={}", questoes.size());
+    public List<Long> balancearIds(List<Long> ids, CriarSimuladoRequest request, int quantidadeTotal) {
 
-        List<Questao> faceis = new ArrayList<>();
-        List<Questao> medios = new ArrayList<>();
-        List<Questao> dificeis = new ArrayList<>();
+        if (ids == null || ids.isEmpty() || quantidadeTotal <= 0) return List.of();
 
-        for (Questao q : questoes) {
-            NivelDificuldade nivel = q.getNivelDificuldade();
-            if (nivel == null) continue;
+        // 1) busca níveis em lote
+        List<QuestaoNivelProjection> rows = questaoRepository.findNiveisByIds(ids);
 
-            switch (nivel) {
-                case FACIL -> faceis.add(q);
-                case MEDIO -> medios.add(q);
-                case DIFICIL -> dificeis.add(q);
+        // id -> nivel
+        Map<Long, NivelDificuldade> nivelPorId = new HashMap<>();
+        for (QuestaoNivelProjection r : rows) {
+            if (r.getId() != null && r.getNivel() != null) {
+                nivelPorId.put(r.getId(), r.getNivel());
             }
         }
 
-        log.debug("[BALANCE] Distribuição inicial por dificuldade: faceis={}, medios={}, dificeis={}",
-                faceis.size(), medios.size(), dificeis.size());
+        List<Long> faceis = new ArrayList<>();
+        List<Long> medios = new ArrayList<>();
+        List<Long> dificeis = new ArrayList<>();
+        List<Long> semNivel = new ArrayList<>();
 
-        // Estratégia padrão (pode virar config no futuro):
-        // 30% fácil, 50% médio, 20% difícil
-        int total = questoes.size();
-
-        int qtdFaceis = total * 30 / 100;
-        int qtdMedios = total * 50 / 100;
-        int qtdDificeis = total * 20 / 100;
-
-        log.debug("[BALANCE] Tamanhos desejados -> faceis={}, medios={}, dificeis={}",
-                qtdFaceis, qtdMedios, qtdDificeis);
-
-        List<Questao> balanceadas = new ArrayList<>();
-        balanceadas.addAll(faceis.stream().limit(qtdFaceis).collect(Collectors.toList()));
-        balanceadas.addAll(medios.stream().limit(qtdMedios).collect(Collectors.toList()));
-        balanceadas.addAll(dificeis.stream().limit(qtdDificeis).collect(Collectors.toList()));
-
-        // Remove duplicadas caso alguma categoria não tenha quantidade suficiente
-        balanceadas = balanceadas.stream().distinct().collect(Collectors.toList());
-
-        log.debug("[BALANCE] Após seleção por dificuldade (sem duplicatas). totalParcial={}",
-                balanceadas.size());
-
-        // Preenche com restantes se faltar (sem repetir)
-        List<Questao> restantes = new ArrayList<>(questoes);
-        restantes.removeAll(balanceadas);
-
-        while (balanceadas.size() < total && !restantes.isEmpty()) {
-            balanceadas.add(restantes.remove(0));
+        for (Long id : ids) {
+            NivelDificuldade nivel = nivelPorId.get(id);
+            if (nivel == null) {
+                semNivel.add(id);
+                continue;
+            }
+            switch (nivel) {
+                case FACIL -> faceis.add(id);
+                case MEDIO -> medios.add(id);
+                case DIFICIL -> dificeis.add(id);
+            }
         }
 
-        log.debug("[BALANCE] Após preencher com restantes. totalFinalAntesShuffle={}",
-                balanceadas.size());
+        // 2) proporção padrão: 30/50/20 (pode virar config depois)
+        int qtdFaceis = quantidadeTotal * 30 / 100;
+        int qtdMedios = quantidadeTotal * 50 / 100;
+        int qtdDificeis = quantidadeTotal * 20 / 100;
 
-        Collections.shuffle(balanceadas);
+        List<Long> selecionadas = new ArrayList<>();
 
-        log.debug("[BALANCE] Balanceamento finalizado. totalSaida={}", balanceadas.size());
+        selecionadas.addAll(faceis.stream().distinct().limit(qtdFaceis).toList());
+        selecionadas.addAll(medios.stream().distinct().limit(qtdMedios).toList());
+        selecionadas.addAll(dificeis.stream().distinct().limit(qtdDificeis).toList());
 
-        return balanceadas;
+        // 3) completa se faltou (sem repetir)
+        Set<Long> usados = new HashSet<>(selecionadas);
+
+        // prioridade: ainda tentar pegar de categorias com sobra
+        List<Long> resto = new ArrayList<>();
+        resto.addAll(faceis);
+        resto.addAll(medios);
+        resto.addAll(dificeis);
+        resto.addAll(semNivel);
+
+        for (Long id : resto) {
+            if (selecionadas.size() >= quantidadeTotal) break;
+            if (id != null && usados.add(id)) selecionadas.add(id);
+        }
+
+        // 4) embaralha
+        Collections.shuffle(selecionadas);
+
+        log.debug("[BALANCE] balancearIds. entrada={}, saida={}, faceis={}, medios={}, dificeis={}, semNivel={}",
+                ids.size(), selecionadas.size(), faceis.size(), medios.size(), dificeis.size(), semNivel.size());
+
+        return selecionadas.stream().limit(quantidadeTotal).toList();
     }
 }

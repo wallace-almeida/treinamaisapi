@@ -75,141 +75,78 @@ public class SimuladoService {
     @Transactional
     public SimuladoExecucaoResponse criarSimulado(CriarSimuladoRequest request, Long usuarioId) {
 
-        // 1) Carrega usuário
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
 
-        // 2) Valida acesso (pacote ativo para o concurso)
         PacoteCompradoComUsuarioDTO pacoteDTO = pacoteCompradoService.listarComprasAtivas(usuarioId).stream()
                 .filter(c -> c.getConcursoId().equals(request.getConcursoId()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("Usuário não possui acesso a este concurso."));
 
-        // 3) Define título automático do simulado baseado no pacote
         String tituloSimulado = "Simulado " + pacoteDTO.getNomePacote();
 
-        // 4) Define quantidade de questões (default = 10)
-        int quantidadeTotal = request.getQuantidadeQuestoes() == null
-                ? 10
-                : request.getQuantidadeQuestoes();
+        int quantidadeTotal = (request.getQuantidadeQuestoes() == null) ? 10 : request.getQuantidadeQuestoes();
 
-        // 5) Busca questões baseadas nos filtros (tema/capítulo/subcapítulo/banca/nível...)
-        List<Questao> questoesFiltradas = questaoRepository.findAll(
-                QuestaoSpecification.filtrar(request)
-        );
+        // ✅ 1) agora só IDs (bem mais leve)
+        List<Long> poolIds = questaoRepository.findIdsByFiltro(request);
 
-        if (questoesFiltradas.isEmpty()) {
-            throw new BusinessException(
-                    "Não encontramos questões com os filtros selecionados. Tente ajustar os critérios."
-            );
+        if (poolIds == null || poolIds.isEmpty()) {
+            throw new BusinessException("Não encontramos questões com os filtros selecionados. Tente ajustar os critérios.");
         }
 
-        // Remove duplicadas por segurança
-        questoesFiltradas = questoesFiltradas.stream()
-                .distinct()
-                .toList();
+        // (opcional) garantir distinct (se seu custom já faz distinct, pode remover)
+        poolIds = poolIds.stream().distinct().toList();
 
-        // ----------------------------------------------------------------------
-        // 6) Seleção base aleatória
-        // ----------------------------------------------------------------------
-        List<Questao> baseAleatoria = questaoSelectorService.selecionar(
-                questoesFiltradas, usuario, quantidadeTotal, request
-        );
+        // ✅ 2) Seleção aleatória de IDs (implementar no selector)
+        List<Long> baseAleatoriaIds = questaoSelectorService.selecionarIds(poolIds, quantidadeTotal);
 
-        // ----------------------------------------------------------------------
-        // 7) Fraquezas (questões mais erradas do usuário, dentro do mesmo pool)
-        // ----------------------------------------------------------------------
-        List<Questao> fraquezas = questaoFraquezaService.buscarQuestoesDeFraqueza(
-                usuario, questoesFiltradas, quantidadeTotal
-        );
+        // ✅ 3) Fraquezas por IDs (implementar no service)
+        List<Long> fraquezasIds = questaoFraquezaService.buscarIdsDeFraqueza(usuario, poolIds, quantidadeTotal);
 
-        // ----------------------------------------------------------------------
-        // 8) Combina fraquezas + base aleatória, sem duplicar
-        //    (fraquezas têm prioridade, depois completamos com aleatórias)
-        // ----------------------------------------------------------------------
-        List<Questao> combinadas = new ArrayList<>();
-        Set<Long> idsUsados = new HashSet<>();
+        // ✅ 4) Combina (prioriza fraquezas)
+        List<Long> combinadas = new ArrayList<>();
+        Set<Long> usados = new HashSet<>();
 
-        for (Questao q : fraquezas) {
-            if (q.getId() != null && idsUsados.add(q.getId())) {
-                combinadas.add(q);
-            }
+        for (Long id : fraquezasIds) {
+            if (id != null && usados.add(id)) combinadas.add(id);
         }
-
-        for (Questao q : baseAleatoria) {
+        for (Long id : baseAleatoriaIds) {
             if (combinadas.size() >= quantidadeTotal) break;
-            if (q.getId() != null && idsUsados.add(q.getId())) {
-                combinadas.add(q);
-            }
+            if (id != null && usados.add(id)) combinadas.add(id);
         }
-
-        // Se por algum motivo ainda estiver vazia, usa o pool inteiro
         if (combinadas.isEmpty()) {
-            combinadas = new ArrayList<>(questoesFiltradas);
-            idsUsados.clear();
-            idsUsados.addAll(
-                    combinadas.stream()
-                            .map(Questao::getId)
-                            .filter(Objects::nonNull)
-                            .toList()
-            );
+            combinadas = new ArrayList<>(poolIds);
         }
 
-        // ----------------------------------------------------------------------
-        // 9) Histórico: evita repetir as ÚLTIMAS N questões
-        //     (QuestaoHistoricoService já está configurado com PageRequest.of(0, N))
-        // ----------------------------------------------------------------------
-        combinadas = questaoHistoricoService.filtrarNaoRespondidas(usuario, combinadas);
+        // ✅ 5) Histórico remove recentes (implementar versão com IDs)
+        combinadas = questaoHistoricoService.filtrarIdsNaoRecentes(usuario, combinadas);
 
-        // Se o histórico eliminar tudo (poucas questões no banco, muito uso recente),
-        // relaxamos a regra e voltamos para o pool completo.
-        if (combinadas.isEmpty()) {
-            combinadas = new ArrayList<>(questoesFiltradas);
+        if (combinadas.isEmpty()) combinadas = new ArrayList<>(poolIds);
+
+        // ✅ 6) Balanceamento por nível usando projection (sem Questao inteira)
+        List<Long> selecionadasIds = questaoBalanceService.balancearIds(combinadas, request, quantidadeTotal);
+
+        if (selecionadasIds.isEmpty()) {
+            throw new BusinessException("Não foi possível montar o simulado com os critérios selecionados.");
         }
 
-        // ----------------------------------------------------------------------
-        // 10) Balanceamento de dificuldade (30% fácil, 50% médio, 20% difícil, etc.)
-        // ----------------------------------------------------------------------
-        List<Questao> questoesSelecionadas = questaoBalanceService.balancear(combinadas, request);
+        // ✅ 7) agora sim busca Questao completa só para as selecionadas
+        List<Questao> questoesSelecionadas = questaoRepository.findByIdIn(selecionadasIds);
 
-        // Remove duplicadas e limita à quantidade desejada
-        questoesSelecionadas = questoesSelecionadas.stream()
-                .distinct()
-                .limit(quantidadeTotal)
+        // (garante ordem do selecionadasIds)
+        Map<Long, Questao> porId = questoesSelecionadas.stream()
+                .collect(Collectors.toMap(Questao::getId, q -> q));
+
+        List<Questao> ordenadas = selecionadasIds.stream()
+                .map(porId::get)
+                .filter(Objects::nonNull)
                 .toList();
 
-        // Fallback: se ainda tiver menos que o desejado, completa com restantes do pool
-        if (questoesSelecionadas.size() < quantidadeTotal) {
-            Set<Long> idsSelecionadas = questoesSelecionadas.stream()
-                    .map(Questao::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-
-            List<Questao> restantes = questoesFiltradas.stream()
-                    .filter(q -> q.getId() != null && !idsSelecionadas.contains(q.getId()))
-                    .toList();
-
-            List<Questao> mutaveis = new ArrayList<>(questoesSelecionadas);
-            for (Questao q : restantes) {
-                if (mutaveis.size() >= quantidadeTotal) break;
-                mutaveis.add(q);
-            }
-            questoesSelecionadas = mutaveis;
-        }
-
-        if (questoesSelecionadas.isEmpty()) {
-            throw new BusinessException(
-                    "Não foi possível montar o simulado com os critérios selecionados."
-            );
-        }
-
-        // ----------------------------------------------------------------------
-        // 11) Cria o Simulado
-        // ----------------------------------------------------------------------
+        // ✅ 8) cria simulado
         Simulado simulado = Simulado.builder()
                 .titulo(tituloSimulado)
                 .usuario(usuario)
-                .quantidadeQuestoes(questoesSelecionadas.size())
+                .quantidadeQuestoes(ordenadas.size())
                 .tempoDuracao(request.getTempoDuracao())
                 .dataCriacao(LocalDateTime.now())
                 .status(StatusSimulado.EM_ANDAMENTO)
@@ -225,11 +162,9 @@ public class SimuladoService {
 
         simuladoRepository.save(simulado);
 
-        // ----------------------------------------------------------------------
-        // 12) Vincula questões ao simulado (QUESTOES_RESPONDIDAS / QuestaoSimulado)
-        // ----------------------------------------------------------------------
+        // ✅ 9) vincula QuestaoSimulado
         AtomicInteger ordem = new AtomicInteger(1);
-        List<QuestaoSimulado> vinculadas = questoesSelecionadas.stream()
+        List<QuestaoSimulado> vinculadas = ordenadas.stream()
                 .map(q -> QuestaoSimulado.builder()
                         .simulado(simulado)
                         .questao(q)
@@ -241,9 +176,9 @@ public class SimuladoService {
 
         questaoSimuladoRepository.saveAll(vinculadas);
 
-        // 13) Retorna simulado pronto para execução
         return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
+
 
 
 

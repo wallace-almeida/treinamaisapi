@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,41 +24,31 @@ public class QuestaoFraquezaService {
     /**
      * Retorna questões do pool disponível que estão entre as mais erradas do usuário.
      */
-    public List<Questao> buscarQuestoesDeFraqueza(Usuario usuario,
-                                                  List<Questao> questoesDisponiveis,
-                                                  int limite) {
+    public List<Long> buscarIdsDeFraqueza(Usuario usuario, List<Long> poolIds, int limite) {
 
         Long usuarioId = usuario.getId();
-        log.debug("[FRAQUEZA] Iniciando busca de fraquezas. usuarioId={}, totalPool={}, limite={}",
-                usuarioId, questoesDisponiveis.size(), limite);
 
-        // Busca ids das questões mais erradas (global para o usuário, depois filtramos pelo pool)
+        if (poolIds == null || poolIds.isEmpty() || limite <= 0) return List.of();
+
+        // ids das mais erradas do usuário (top N)
         List<Long> idsFraquezas = historicoRepo.findQuestoesMaisErradas(
                 usuarioId,
                 PageRequest.of(0, limite)
         );
 
-        log.debug("[FRAQUEZA] IDs de fraquezas retornados do histórico. usuarioId={}, totalIds={}, ids={}",
-                usuarioId, idsFraquezas.size(), resumirIds(idsFraquezas));
+        Set<Long> poolSet = new HashSet<>(poolIds);
 
-        Set<Long> fraquezasSet = new HashSet<>(idsFraquezas);
-
-        List<Questao> selecionadas = questoesDisponiveis.stream()
-                .filter(q -> q.getId() != null && fraquezasSet.contains(q.getId()))
+        List<Long> filtradas = idsFraquezas.stream()
+                .filter(Objects::nonNull)
+                .filter(poolSet::contains)   // pega só as que existem no pool atual
+                .distinct()
                 .limit(limite)
-                .collect(Collectors.toList());
+                .toList();
 
-        log.debug("[FRAQUEZA] Resultado da filtragem no pool. usuarioId={}, totalSelecionadas={}",
-                usuarioId, selecionadas.size());
+        log.debug("[FRAQUEZA] buscarIdsDeFraqueza. usuarioId={}, pool={}, idsFraquezas={}, retorno={}",
+                usuarioId, poolIds.size(), idsFraquezas.size(), filtradas.size());
 
-        return selecionadas;
+        return filtradas;
     }
 
-    private String resumirIds(List<Long> ids) {
-        int max = Math.min(ids.size(), 10);
-        return ids.stream()
-                .limit(max)
-                .toList()
-                .toString() + (ids.size() > max ? " ... (+" + (ids.size() - max) + ")" : "");
-    }
 }
