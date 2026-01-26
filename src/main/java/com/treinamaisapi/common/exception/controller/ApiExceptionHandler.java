@@ -1,9 +1,6 @@
 package com.treinamaisapi.common.exception.controller;
 
-import com.treinamaisapi.common.exception.BusinessException;
-import com.treinamaisapi.common.exception.ErrorResponse;
-import com.treinamaisapi.common.exception.InvalidCredentialsException;
-import com.treinamaisapi.common.exception.NotFoundException;
+import com.treinamaisapi.common.exception.*;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,5 +114,23 @@ public class ApiExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
+
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<ErrorResponse> handleAuth(AuthException ex, HttpServletRequest request) {
+
+        var traceId = getTraceId();
+        log.warn("AUTH_ERROR [{}] {}: {}", traceId, ex.getCode(), ex.getMessage());
+
+        var error = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                ex.getCode(),                 // <-- AQUI VAI O "REFRESH_REVOKED", "REFRESH_EXPIRED" etc
+                ex.getMessage(),
+                request.getRequestURI(),
+                traceId
+        );
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
 
 }

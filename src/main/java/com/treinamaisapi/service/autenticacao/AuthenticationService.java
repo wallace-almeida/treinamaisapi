@@ -5,7 +5,7 @@ import com.treinamaisapi.common.dto.auth.AuthResponse;
 import com.treinamaisapi.common.dto.auth.LoginRequest;
 import com.treinamaisapi.common.dto.auth.RefreshTokenRequest;
 
-
+import jakarta.transaction.Transactional;
 import com.treinamaisapi.common.dto.usuario.UsuarioResponse;
 
 
@@ -74,6 +74,7 @@ public class AuthenticationService {
 
     }
 
+    @Transactional
     public AuthResponse refresh(RefreshTokenRequest request) {
 
         // 1️⃣ Valida o refresh token no banco
