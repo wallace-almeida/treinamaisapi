@@ -27,11 +27,21 @@ public class Questao {
     @Column(columnDefinition = "TEXT")
     private String enunciado;
 
+    @Column(columnDefinition = "TEXT")
     private String alternativaA;
+
+    @Column(columnDefinition = "TEXT")
     private String alternativaB;
+
+    @Column(columnDefinition = "TEXT")
     private String alternativaC;
+
+    @Column(columnDefinition = "TEXT")
     private String alternativaD;
+
     private String respostaCorreta; // Ex: "D"
+
+
     @Column(columnDefinition = "TEXT")
     private String explicacao;
 

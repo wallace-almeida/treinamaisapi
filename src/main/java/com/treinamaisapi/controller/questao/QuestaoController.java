@@ -1,6 +1,7 @@
 package com.treinamaisapi.controller.questao;
 
 import com.treinamaisapi.common.dto.questao.request.QuestaoRequest;
+import com.treinamaisapi.common.dto.questao.request.QuestaoUpdateRequest;
 import com.treinamaisapi.common.dto.questao.response.QuestaoResponse;
 import com.treinamaisapi.controller.swagger.QuestaoControllerSwagger;
 import com.treinamaisapi.service.questao.QuestaoService;
@@ -34,6 +35,22 @@ public class QuestaoController implements QuestaoControllerSwagger {
             @RequestParam(required = false) String nivel
     ) {
         return ResponseEntity.ok(questaoService.listarPorFiltro(temaId, capituloId, subcapituloId, banca, nivel));
+    }
+
+    @DeleteMapping("/{id}")
+    @Override
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+        questaoService.deletar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}")
+    @Override
+    public ResponseEntity<QuestaoResponse> atualizarParcial(
+            @PathVariable Long id,
+            @RequestBody QuestaoUpdateRequest request
+    ) {
+        return ResponseEntity.ok(questaoService.atualizarParcial(id, request));
     }
 
 }
