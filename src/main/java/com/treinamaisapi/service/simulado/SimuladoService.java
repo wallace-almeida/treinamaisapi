@@ -86,54 +86,62 @@ public class SimuladoService {
         String tituloSimulado = "Simulado " + pacoteDTO.getNomePacote();
 
         int quantidadeTotal = (request.getQuantidadeQuestoes() == null) ? 10 : request.getQuantidadeQuestoes();
+        if (quantidadeTotal <= 0) throw new BusinessException("Quantidade de questões inválida.");
 
-        // ✅ 1) agora só IDs (bem mais leve)
+        // 0) normaliza listas vazias -> null (evita filtro estranho)
+        normalizarFiltro(request);
+
+        // 1) POOL (universo) - só IDs
         List<Long> poolIds = questaoRepository.findIdsByFiltro(request);
 
-        if (poolIds == null || poolIds.isEmpty()) {
+
+        if (poolIds.size() < quantidadeTotal) {
+            throw new BusinessException(
+                    "Pool insuficiente para montar " + quantidadeTotal +
+                            ". Com esses filtros o pool retornou " + poolIds.size() + " questões."
+            );
+        }
+
+        if (poolIds.isEmpty()) {
             throw new BusinessException("Não encontramos questões com os filtros selecionados. Tente ajustar os critérios.");
         }
 
-        // (opcional) garantir distinct (se seu custom já faz distinct, pode remover)
-        poolIds = poolIds.stream().distinct().toList();
+        // Regra do negócio: se pediu 50, o filtro precisa ter 50
+        if (poolIds.size() < quantidadeTotal) {
+            throw new BusinessException(
+                    "Pool insuficiente para montar " + quantidadeTotal + " questões. Disponível: " + poolIds.size()
+            );
+        }
 
-        // ✅ 2) Seleção aleatória de IDs (implementar no selector)
-        List<Long> baseAleatoriaIds = questaoSelectorService.selecionarIds(poolIds, quantidadeTotal);
-
-        // ✅ 3) Fraquezas por IDs (implementar no service)
+        // 2) Preferência #1: fraquezas (até N)
         List<Long> fraquezasIds = questaoFraquezaService.buscarIdsDeFraqueza(usuario, poolIds, quantidadeTotal);
 
-        // ✅ 4) Combina (prioriza fraquezas)
-        List<Long> combinadas = new ArrayList<>();
-        Set<Long> usados = new HashSet<>();
+        // 3) Preferência #2: candidatos aleatórios com FOLGA (para não morrer no histórico)
+        int folga = Math.min(poolIds.size(), Math.max(quantidadeTotal * 4, quantidadeTotal + 30));
+        List<Long> aleatoriasIds = questaoSelectorService.selecionarIds(poolIds, folga);
 
-        for (Long id : fraquezasIds) {
-            if (id != null && usados.add(id)) combinadas.add(id);
-        }
-        for (Long id : baseAleatoriaIds) {
-            if (combinadas.size() >= quantidadeTotal) break;
-            if (id != null && usados.add(id)) combinadas.add(id);
-        }
-        if (combinadas.isEmpty()) {
-            combinadas = new ArrayList<>(poolIds);
-        }
+        // 4) Candidatos = fraquezas primeiro + aleatórias (SEM cortar em N aqui)
+        List<Long> candidatos = combinarSemRepetir(fraquezasIds, aleatoriasIds);
 
-        // ✅ 5) Histórico remove recentes (implementar versão com IDs)
-        combinadas = questaoHistoricoService.filtrarIdsNaoRecentes(usuario, combinadas);
+        // 5) Preferência #3: remover recentes (soft)
+        List<Long> naoRecentes = questaoHistoricoService.filtrarIdsNaoRecentes(usuario, candidatos);
 
-        if (combinadas.isEmpty()) combinadas = new ArrayList<>(poolIds);
+        // Se ficou pouco, completa com candidatos (inclui recentes) até a folga mínima
+        naoRecentes = completarAte(naoRecentes, candidatos, Math.min(folga, poolIds.size()));
 
-        // ✅ 6) Balanceamento por nível usando projection (sem Questao inteira)
-        List<Long> selecionadasIds = questaoBalanceService.balancearIds(combinadas, request, quantidadeTotal);
+        // 6) Preferência #4: balancear por nível sobre a lista maior (não só N)
+        List<Long> balanceadas = questaoBalanceService.balancearIds(naoRecentes, request, quantidadeTotal);
 
-        if (selecionadasIds.isEmpty()) {
-            throw new BusinessException("Não foi possível montar o simulado com os critérios selecionados.");
-        }
+        // 7) Garantia final: se por qualquer motivo veio < N, completa com o pool (universo)
+        balanceadas = completarAte(balanceadas, poolIds, quantidadeTotal);
 
-        // ✅ 7) agora sim busca Questao completa só para as selecionadas
+        // Agora sim corta exatamente N
+        List<Long> selecionadasIds = balanceadas.stream().limit(quantidadeTotal).toList();
+
+        // 8) Busca Questao completa só das selecionadas
         List<Questao> questoesSelecionadas = questaoRepository.findByIdIn(selecionadasIds);
 
-        // (garante ordem do selecionadasIds)
+        // garante ordem conforme selecionadasIds
         Map<Long, Questao> porId = questoesSelecionadas.stream()
                 .collect(Collectors.toMap(Questao::getId, q -> q));
 
@@ -142,11 +150,28 @@ public class SimuladoService {
                 .filter(Objects::nonNull)
                 .toList();
 
-        // ✅ 8) cria simulado
+        // proteção extra: se sumiu algo por integridade, completa de novo (raríssimo, mas profissional)
+        if (ordenadas.size() < quantidadeTotal) {
+            // completa com outras questões do pool que existam
+            Set<Long> ja = ordenadas.stream().map(Questao::getId).collect(Collectors.toSet());
+            List<Long> faltantes = poolIds.stream().filter(id -> !ja.contains(id)).limit(quantidadeTotal - ordenadas.size()).toList();
+
+            if (!faltantes.isEmpty()) {
+                List<Questao> extras = questaoRepository.findByIdIn(faltantes);
+                ordenadas = new ArrayList<>(ordenadas);
+                ordenadas.addAll(extras);
+            }
+        }
+
+        if (ordenadas.size() < quantidadeTotal) {
+            throw new BusinessException("Não foi possível montar o simulado com a quantidade solicitada (inconsistência de dados).");
+        }
+
+        // 9) Cria simulado
         Simulado simulado = Simulado.builder()
                 .titulo(tituloSimulado)
                 .usuario(usuario)
-                .quantidadeQuestoes(ordenadas.size())
+                .quantidadeQuestoes(quantidadeTotal)
                 .tempoDuracao(request.getTempoDuracao())
                 .dataCriacao(LocalDateTime.now())
                 .status(StatusSimulado.EM_ANDAMENTO)
@@ -162,9 +187,10 @@ public class SimuladoService {
 
         simuladoRepository.save(simulado);
 
-        // ✅ 9) vincula QuestaoSimulado
+        // 10) Vincula QuestaoSimulado
         AtomicInteger ordem = new AtomicInteger(1);
         List<QuestaoSimulado> vinculadas = ordenadas.stream()
+                .limit(quantidadeTotal)
                 .map(q -> QuestaoSimulado.builder()
                         .simulado(simulado)
                         .questao(q)
@@ -179,6 +205,40 @@ public class SimuladoService {
         return SimuladoExecucaoResponse.fromEntity(simulado, vinculadas);
     }
 
+
+    private void normalizarFiltro(CriarSimuladoRequest r) {
+        if (r.getTemaIds() != null && r.getTemaIds().isEmpty()) r.setTemaIds(null);
+        if (r.getCapituloIds() != null && r.getCapituloIds().isEmpty()) r.setCapituloIds(null);
+        if (r.getSubcapituloIds() != null && r.getSubcapituloIds().isEmpty()) r.setSubcapituloIds(null);
+        if (r.getBancas() != null && r.getBancas().isEmpty()) r.setBancas(null);
+        if (r.getNiveis() != null && r.getNiveis().isEmpty()) r.setNiveis(null);
+    }
+
+    private List<Long> combinarSemRepetir(List<Long> primeiro, List<Long> depois) {
+        List<Long> out = new ArrayList<>();
+        Set<Long> usados = new HashSet<>();
+        if (primeiro != null) {
+            for (Long id : primeiro) if (id != null && usados.add(id)) out.add(id);
+        }
+        if (depois != null) {
+            for (Long id : depois) if (id != null && usados.add(id)) out.add(id);
+        }
+        return out;
+    }
+
+    private List<Long> completarAte(List<Long> base, List<Long> fonte, int alvo) {
+        if (alvo <= 0) return List.of();
+        List<Long> out = new ArrayList<>(base == null ? List.of() : base);
+        Set<Long> set = new HashSet<>(out);
+
+        if (out.size() >= alvo) return out;
+
+        for (Long id : fonte) {
+            if (out.size() >= alvo) break;
+            if (id != null && set.add(id)) out.add(id);
+        }
+        return out;
+    }
 
 
 
