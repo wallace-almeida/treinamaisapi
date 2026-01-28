@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -173,7 +174,7 @@ public class SimuladoService {
                 .usuario(usuario)
                 .quantidadeQuestoes(quantidadeTotal)
                 .tempoDuracao(request.getTempoDuracao())
-                .dataCriacao(LocalDateTime.now())
+                .dataCriacao(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")))
                 .status(StatusSimulado.EM_ANDAMENTO)
                 .bancas(request.getBancas() != null ? new ArrayList<>(request.getBancas()) : null)
                 .niveis(request.getNiveis() != null ? new ArrayList<>(request.getNiveis()) : null)
