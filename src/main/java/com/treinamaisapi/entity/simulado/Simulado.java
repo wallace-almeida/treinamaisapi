@@ -33,8 +33,9 @@ public class Simulado {
     private Integer tempoDuracao;
 
 
-    @CreationTimestamp
-    @Column(updatable = false)
+
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
 
 
