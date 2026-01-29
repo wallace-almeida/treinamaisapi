@@ -52,6 +52,14 @@ public class PacoteComprado {
     private String pixTxId;// txid PIX
     private LocalDateTime pixExpiracao;
 
+
+    @Column(columnDefinition = "text")
+    private String pixCopiaCola;
+
+    @Column(columnDefinition = "text")
+    private String pixTicketUrl;
+
+
     // ===== CONTROLE =====
     @Column(nullable = false)
     private boolean ativo;
@@ -60,9 +68,11 @@ public class PacoteComprado {
     private String motivoCancelamento;
 
     // ===== REEMBOLSO (NOVO) =====
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StatusReembolso refundStatus;
+    private StatusReembolso refundStatus = StatusReembolso.NAO_SOLICITADO;
+
 
     private String refundId;    // id do reembolso no MP
     private java.math.BigDecimal refundValor;
@@ -83,6 +93,7 @@ public class PacoteComprado {
     }
 
     public boolean podeCancelar() {
+        if (dataCompra == null) return false; // ou true, dependendo da regra
         if (status == StatusCompra.CANCELADA ||
                 status == StatusCompra.REEMBOLSADA ||
                 status == StatusCompra.EXPIRADA) {
@@ -90,4 +101,17 @@ public class PacoteComprado {
         }
         return dataCompra.plusDays(7).isAfter(LocalDateTime.now());
     }
+
+    @PrePersist
+    void prePersist() {
+        if (dataCompra == null) dataCompra = LocalDateTime.now();
+        if (refundStatus == null) refundStatus = StatusReembolso.NAO_SOLICITADO;
+        if (status == null) status = StatusCompra.CRIADA; // se fizer sentido
+
+    }
+
+
+
+
+
 }

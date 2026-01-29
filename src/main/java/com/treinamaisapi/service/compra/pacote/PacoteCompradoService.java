@@ -152,18 +152,45 @@ public class PacoteCompradoService {
         Pacote pacote = pacoteRepository.findById(pacoteId)
                 .orElseThrow(() -> new BusinessException("Pacote não encontrado"));
 
-        // ... (demais validações)
+        // ✅ 1) REUSO: se já existe compra PIX pendente e válida, devolve ela
+        // (evita criar outra compra e outro payment no MP)
+        PacoteComprado existente = pacoteCompradoRepository
+                .findTopByUsuarioIdAndPacoteIdAndMeioPagamentoAndStatusInOrderByIdDesc(
+                        usuarioId,
+                        pacoteId,
+                        MeioPagamento.PIX,
+                        java.util.List.of(StatusCompra.CRIADA, StatusCompra.PENDENTE)
+                )
+                .orElse(null);
 
+        if (existente != null
+                && existente.getPixExpiracao() != null
+                && existente.getPixExpiracao().isAfter(LocalDateTime.now())
+                && existente.getPixCopiaCola() != null) {
+
+            return CriarCompraPixResponse.builder()
+                    .compraId(existente.getId())
+                    .status(existente.getStatus())
+                    .qrCodeBase64(null) // você não precisa
+                    .qrCodeCopiaCola(existente.getPixCopiaCola())
+                    .expiracaoPix(existente.getPixExpiracao())
+                    .ticketUrl(existente.getPixTicketUrl())
+                    .build();
+        }
+
+        // ✅ 2) Cria uma nova "compra" local com status CRIADA
         PacoteComprado compra = PacoteComprado.builder()
                 .usuario(usuario)
                 .pacote(pacote)
-                .status(StatusCompra.PENDENTE)
+                .status(StatusCompra.CRIADA)
                 .meioPagamento(MeioPagamento.PIX)
                 .gateway("MERCADO_PAGO")
                 .ativo(false)
                 .refundStatus(StatusReembolso.NAO_SOLICITADO)
                 .build();
-        compra = pacoteCompradoRepository.save(compra);
+
+        // ✅ Garante ID antes de chamar o MP (pra external_reference / idempotency)
+        compra = pacoteCompradoRepository.saveAndFlush(compra);
 
         String descricaoPagamento = String.format(
                 "Treina Mais — %s (%d dias)",
@@ -171,26 +198,43 @@ public class PacoteCompradoService {
                 pacote.getDuracaoDias()
         );
 
-        // 🟢 Agora passamos o e-mail real do usuário
-        PixCobrancaResponse pix = pixGateway.criarCobranca(
-                compra.getId(),
-                pacote.getPreco(),
-                descricaoPagamento,
-                usuario.getEmail() // 👈 aqui!
-        );
+        try {
+            // ✅ 3) Chamada externa (MP)
+            PixCobrancaResponse pix = pixGateway.criarCobranca(
+                    compra.getId(),
+                    pacote.getPreco(),
+                    descricaoPagamento,
+                    usuario.getEmail()
+            );
 
-        compra.setPixTxId(pix.getTxId());
-        compra.setPixExpiracao(pix.getExpiracao());
-        pacoteCompradoRepository.save(compra);
+            // ✅ 4) Só agora marca como PENDENTE e salva os dados essenciais
+            compra.setStatus(StatusCompra.PENDENTE);
+            compra.setPixTxId(pix.getTxId());
+            compra.setPixExpiracao(pix.getExpiracao());
 
-        return CriarCompraPixResponse.builder()
-                .compraId(compra.getId())
-                .status(compra.getStatus())
-                .qrCodeBase64(pix.getQrCodeBase64())
-                .qrCodeCopiaCola(pix.getCopiaCola())
-                .expiracaoPix(pix.getExpiracao())
-                .ticketUrl(pix.getTicketUrl())
-                .build();
+            // ✅ salva pra recuperação futura
+            compra.setPixCopiaCola(pix.getCopiaCola());
+            compra.setPixTicketUrl(pix.getTicketUrl());
+
+            pacoteCompradoRepository.save(compra);
+
+            return CriarCompraPixResponse.builder()
+                    .compraId(compra.getId())
+                    .status(compra.getStatus())
+                    .qrCodeBase64(null) // opcional
+                    .qrCodeCopiaCola(pix.getCopiaCola())
+                    .expiracaoPix(pix.getExpiracao())
+                    .ticketUrl(pix.getTicketUrl())
+                    .build();
+
+        } catch (Exception e) {
+            // ✅ Se o MP falhar, não deixa uma "compra CRIADA" eternamente
+            compra.setStatus(StatusCompra.EXPIRADA); // ou CANCELADA, você escolhe
+            compra.setRefundErro("Falha ao criar PIX no Mercado Pago: " + e.getMessage());
+            pacoteCompradoRepository.save(compra);
+
+            throw e; // ou throw new BusinessException("Falha ao criar PIX...");
+        }
     }
 
 

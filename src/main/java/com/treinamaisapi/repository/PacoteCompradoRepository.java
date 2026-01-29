@@ -1,6 +1,7 @@
 package com.treinamaisapi.repository;
 
 
+import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -49,6 +50,13 @@ where pc.usuario.id = :usuarioId
   and pc.status = :status
 """)
     List<Long> findPacoteIdsAtivosByUsuarioAndStatus(Long usuarioId, StatusCompra status);
+
+    Optional<PacoteComprado> findTopByUsuarioIdAndPacoteIdAndMeioPagamentoAndStatusInOrderByIdDesc(
+            Long usuarioId,
+            Long pacoteId,
+            MeioPagamento meioPagamento,
+            List<StatusCompra> status
+    );
 
 
     Optional<PacoteComprado> findByPixTxId(String pixTxId);
