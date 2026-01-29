@@ -163,7 +163,6 @@ public class PacoteCompradoService {
                 .ativo(false)
                 .refundStatus(StatusReembolso.NAO_SOLICITADO)
                 .build();
-
         compra = pacoteCompradoRepository.save(compra);
 
         String descricaoPagamento = String.format(
