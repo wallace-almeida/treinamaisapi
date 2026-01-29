@@ -11,6 +11,7 @@ import com.treinamaisapi.common.exception.NotFoundException;
 import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
 import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
+import com.treinamaisapi.entity.enums.pagamento.StatusReembolso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.usuarios.Usuario;
@@ -160,6 +161,7 @@ public class PacoteCompradoService {
                 .meioPagamento(MeioPagamento.PIX)
                 .gateway("MERCADO_PAGO")
                 .ativo(false)
+                .refundStatus(StatusReembolso.NAO_SOLICITADO)
                 .build();
 
         compra = pacoteCompradoRepository.save(compra);

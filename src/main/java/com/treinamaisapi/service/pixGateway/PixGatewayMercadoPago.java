@@ -3,6 +3,7 @@ package com.treinamaisapi.service.pixGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.treinamaisapi.common.dto.cancelamentoCompra.MpRefundResponse;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.MpPaymentStatusResponse;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixGateway;
 import com.treinamaisapi.common.dto.compra.pix.marcadoPago.request.MpPixPaymentRequest;
@@ -131,9 +132,36 @@ public class PixGatewayMercadoPago implements PixGateway {
 
 
     @Override
-    public void cancelarCobranca(String txId) {
-        log.info("Cancelamento de cobrança PIX ainda não implementado. txId={}", txId);
+    public void cancelarCobranca(String paymentId) {
+        try {
+            String url = MP_PAYMENTS_URL + "/" + paymentId;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(accessToken);
+            headers.add("X-Idempotency-Key", "cancel-pix-" + paymentId);
+
+            String body = "{\"status\":\"cancelled\"}";
+            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.PUT, entity, String.class
+            );
+
+            log.info("Cancelamento MP: paymentId={} statusHTTP={} body={}",
+                    paymentId, response.getStatusCode(), response.getBody());
+
+        } catch (HttpClientErrorException e) {
+            log.error("Erro HTTP ao cancelar MP. status={} body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new BusinessException("Falha ao cancelar pagamento no Mercado Pago");
+        } catch (RestClientException e) {
+            log.error("Erro ao cancelar MP. paymentId={}", paymentId, e);
+            throw new BusinessException("Falha ao cancelar pagamento no Mercado Pago");
+        }
     }
+
+
 
     @Override
     public MpPaymentStatusResponse buscarPagamento(String paymentId) {
@@ -162,4 +190,55 @@ public class PixGatewayMercadoPago implements PixGateway {
             throw new BusinessException("Falha ao consultar pagamento no Mercado Pago");
         }
     }
+
+    @Override
+    public MpRefundResponse reembolsarPagamento(String paymentId, BigDecimal amountOrNull) {
+        try {
+            String url = MP_PAYMENTS_URL + "/" + paymentId + "/refunds";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(accessToken);
+            headers.add("X-Idempotency-Key", "refund-pix-" + paymentId);
+
+            String body;
+            if (amountOrNull == null) {
+                body = "{}"; // reembolso total
+            } else {
+                BigDecimal v = amountOrNull.setScale(2, RoundingMode.HALF_UP);
+                body = "{\"amount\": " + v.toPlainString() + "}";
+            }
+
+            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, String.class
+            );
+
+            log.info("Reembolso MP: paymentId={} statusHTTP={} body={}",
+                    paymentId, response.getStatusCode(), response.getBody());
+
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new BusinessException("Resposta inválida do Mercado Pago ao solicitar reembolso");
+            }
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+
+            String refundId = root.path("id").asText(null);
+            String refundStatus = root.path("status").asText(null);
+            BigDecimal refundAmount = root.hasNonNull("amount") ? root.get("amount").decimalValue() : null;
+
+            return new MpRefundResponse(refundId, refundStatus, refundAmount);
+
+        } catch (HttpClientErrorException e) {
+            log.error("Erro HTTP ao reembolsar MP. status={} body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new BusinessException("Falha ao solicitar reembolso no Mercado Pago");
+        } catch (Exception e) {
+            log.error("Erro ao reembolsar MP. paymentId={}", paymentId, e);
+            throw new BusinessException("Falha ao solicitar reembolso no Mercado Pago");
+        }
+    }
+
+
 }

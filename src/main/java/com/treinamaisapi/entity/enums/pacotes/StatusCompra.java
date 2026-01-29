@@ -6,5 +6,6 @@ public enum StatusCompra {
     APROVADA,      // pagamento confirmado
     CANCELADA,
     EXPIRADA,
-    REEMBOLSADA
+    REEMBOLSADA,
+    REEMBOLSO_SOLICITADO
 }

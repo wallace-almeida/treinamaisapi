@@ -2,6 +2,7 @@ package com.treinamaisapi.entity.pacotes;
 
 import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
+import com.treinamaisapi.entity.enums.pagamento.StatusReembolso;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
@@ -57,6 +58,19 @@ public class PacoteComprado {
 
     private LocalDateTime dataCancelamento;
     private String motivoCancelamento;
+
+    // ===== REEMBOLSO (NOVO) =====
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusReembolso refundStatus;
+
+    private String refundId;    // id do reembolso no MP
+    private java.math.BigDecimal refundValor;
+    private LocalDateTime refundSolicitadoEm;
+    private LocalDateTime refundConfirmadoEm;
+
+    @Column(length = 500)
+    private String refundErro;
 
     // ===== REGRAS =====
     public boolean isExpirado() {
