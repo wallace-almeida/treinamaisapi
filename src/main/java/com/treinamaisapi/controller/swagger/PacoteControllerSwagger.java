@@ -3,6 +3,10 @@ package com.treinamaisapi.controller.swagger;
 
 import com.treinamaisapi.common.dto.compra.response.CompraRespondeDireta;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
+import com.treinamaisapi.common.dto.desconto.CriarCupomRequest;
+import com.treinamaisapi.common.dto.desconto.CupomPreviewRequest;
+import com.treinamaisapi.common.dto.desconto.CupomPreviewResponse;
+import com.treinamaisapi.common.dto.desconto.CupomResponse;
 import com.treinamaisapi.common.dto.pacote.request.PacoteRequest;
 import com.treinamaisapi.common.dto.pacote.response.CatalogoPacoteDTO;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
@@ -50,4 +54,13 @@ public interface PacoteControllerSwagger {
     CompraRespondeDireta comprarPacoteSemMeioPagamento(
             @PathVariable Long pacoteId,
             @AuthenticationPrincipal Usuario usuarioAutenticado);
+
+    @PostMapping("/cupom/validar")
+    CupomPreviewResponse validarCupom(
+            @RequestBody CupomPreviewRequest request,
+            @AuthenticationPrincipal Usuario usuario);
+
+    @PostMapping
+    // @PreAuthorize("hasRole('ADMIN')")
+    CupomResponse criar(@RequestBody CriarCupomRequest req);
 }

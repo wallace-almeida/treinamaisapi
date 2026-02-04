@@ -1,5 +1,6 @@
 package com.treinamaisapi.entity.pacotes;
 
+import com.treinamaisapi.entity.desconto.CupomDesconto;
 import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
 import com.treinamaisapi.entity.enums.pagamento.StatusReembolso;
@@ -8,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -82,6 +84,23 @@ public class PacoteComprado {
     @Column(length = 500)
     private String refundErro;
 
+
+    // ===== DESCONTO (opc.) =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cupom_id")
+    private CupomDesconto cupom;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal precoOriginal;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal precoFinal;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal valorDesconto;
+
+
+
     // ===== REGRAS =====
     public boolean isExpirado() {
         return dataExpiracao != null &&
@@ -108,6 +127,7 @@ public class PacoteComprado {
         if (refundStatus == null) refundStatus = StatusReembolso.NAO_SOLICITADO;
         if (status == null) status = StatusCompra.CRIADA; // se fizer sentido
 
+        if (valorDesconto == null) valorDesconto = BigDecimal.ZERO;
     }
 
 

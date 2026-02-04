@@ -4,6 +4,7 @@ import com.treinamaisapi.common.dto.compra.pix.gatewayPix.MpPaymentStatusRespons
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
+import com.treinamaisapi.common.dto.desconto.CriarPixRequestDesc;
 import com.treinamaisapi.controller.swagger.PacoteCompradoControllerSwagger;
 import com.treinamaisapi.entity.usuarios.Usuario;
 import com.treinamaisapi.service.compra.pacote.PacoteCompradoService;
@@ -35,15 +36,23 @@ public class PacoteCompradoController implements PacoteCompradoControllerSwagger
         return ResponseEntity.ok().build();
     }
 
+
     // pix
     @PostMapping("/{pacoteId}/pix")
     @Override
     public CriarCompraPixResponse criarPix(
             @PathVariable Long pacoteId,
+            @RequestBody(required = false) CriarPixRequestDesc body,
             @AuthenticationPrincipal Usuario usuario
     ) {
-        return pacoteCompradoService.criarCompraPix(usuario.getId(), pacoteId);
+        String codigoCupom = (body != null) ? body.getCodigoCupom() : null;
+        return pacoteCompradoService.criarCompraPix(
+                usuario.getId(),
+                pacoteId,
+                codigoCupom
+        );
     }
+
 
     @GetMapping("/compras/{compraId}")
     @Override

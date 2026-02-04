@@ -6,6 +6,7 @@ package com.treinamaisapi.controller.swagger;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
+import com.treinamaisapi.common.dto.desconto.CriarPixRequestDesc;
 import com.treinamaisapi.common.dto.pacote.response.PacoteResponse;
 import com.treinamaisapi.common.dto.usuario.UsuarioRequest;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
@@ -26,9 +27,13 @@ public interface PacoteCompradoControllerSwagger {
 
 
     // pix
+
+
+    // pix
     @PostMapping("/{pacoteId}/pix")
     CriarCompraPixResponse criarPix(
             @PathVariable Long pacoteId,
+            @RequestBody(required = false) CriarPixRequestDesc body,
             @AuthenticationPrincipal Usuario usuario
     );
 

@@ -6,8 +6,10 @@ import com.treinamaisapi.common.dto.compra.pix.response.PixCobrancaResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraRespondeDireta;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
 import com.treinamaisapi.common.dto.compra.response.PacoteCompradoComUsuarioDTO;
+import com.treinamaisapi.common.dto.desconto.CupomPreviewResponse;
 import com.treinamaisapi.common.exception.BusinessException;
 import com.treinamaisapi.common.exception.NotFoundException;
+import com.treinamaisapi.entity.desconto.CupomDesconto;
 import com.treinamaisapi.entity.enums.concursos.StatusConcurso;
 import com.treinamaisapi.entity.enums.pacotes.MeioPagamento;
 import com.treinamaisapi.entity.enums.pacotes.StatusCompra;
@@ -15,13 +17,17 @@ import com.treinamaisapi.entity.enums.pagamento.StatusReembolso;
 import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import com.treinamaisapi.entity.usuarios.Usuario;
+import com.treinamaisapi.repository.CupomDescontoRepository;
 import com.treinamaisapi.repository.PacoteCompradoRepository;
 import com.treinamaisapi.repository.PacoteRepository;
 import com.treinamaisapi.repository.UsuarioRepository;
+import com.treinamaisapi.service.descont.CupomService;
 import org.springframework.transaction.annotation.Transactional;  // ✅ Spring
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -35,6 +41,8 @@ public class PacoteCompradoService {
     private final UsuarioRepository usuarioRepository;
     private final PacoteRepository pacoteRepository;
     private final PixGateway pixGateway;
+    private final CupomDescontoRepository cupomDescontoRepository;
+    private final CupomService cupomService;
 
 
 
@@ -144,7 +152,7 @@ public class PacoteCompradoService {
     // Pagamento por GATeway  meio Pix
 
     @Transactional
-    public CriarCompraPixResponse criarCompraPix(Long usuarioId, Long pacoteId) {
+    public CriarCompraPixResponse criarCompraPix(Long usuarioId, Long pacoteId, String codigoCupom) {
 
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new BusinessException("Usuário não encontrado"));
@@ -152,8 +160,34 @@ public class PacoteCompradoService {
         Pacote pacote = pacoteRepository.findById(pacoteId)
                 .orElseThrow(() -> new BusinessException("Pacote não encontrado"));
 
-        // ✅ 1) REUSO: se já existe compra PIX pendente e válida, devolve ela
-        // (evita criar outra compra e outro payment no MP)
+        // 0) normaliza cupom (opcional)
+        String cupomNormalizado = (codigoCupom == null || codigoCupom.isBlank())
+                ? null
+                : codigoCupom.trim().toUpperCase();
+
+        // 1) resolve cupom entidade (opcional)
+        CupomDesconto cupom = null;
+        if (cupomNormalizado != null) {
+            cupom = cupomDescontoRepository.findByCodigoIgnoreCase(cupomNormalizado)
+                    .orElseThrow(() -> new BusinessException("Cupom inválido."));
+        }
+
+        // 2) calcula valores (sempre no backend)
+        BigDecimal precoOriginal = pacote.getPreco().setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal precoFinal = precoOriginal;
+        BigDecimal valorDesconto = BigDecimal.ZERO;
+
+        if (cupom != null) {
+            // use um método do CupomService que VALIDA e CALCULA com base no pacote + cupom
+            // (você pode usar seu CupomPreviewResponse ou um método direto)
+            CupomPreviewResponse preview = cupomService.aplicarDesconto(usuarioId, pacoteId, cupomNormalizado);
+
+            precoFinal = preview.getPrecoFinal().setScale(2, RoundingMode.HALF_UP);
+            valorDesconto = preview.getDesconto().setScale(2, RoundingMode.HALF_UP);
+        }
+
+        // 3) REUSO: se existe pix pendente e válido, só devolve se for MESMO cupom e MESMO valor
         PacoteComprado existente = pacoteCompradoRepository
                 .findTopByUsuarioIdAndPacoteIdAndMeioPagamentoAndStatusInOrderByIdDesc(
                         usuarioId,
@@ -168,17 +202,35 @@ public class PacoteCompradoService {
                 && existente.getPixExpiracao().isAfter(LocalDateTime.now())
                 && existente.getPixCopiaCola() != null) {
 
-            return CriarCompraPixResponse.builder()
-                    .compraId(existente.getId())
-                    .status(existente.getStatus())
-                    .qrCodeBase64(null) // você não precisa
-                    .qrCodeCopiaCola(existente.getPixCopiaCola())
-                    .expiracaoPix(existente.getPixExpiracao())
-                    .ticketUrl(existente.getPixTicketUrl())
-                    .build();
+            Long cupomIdAtual = (cupom != null) ? cupom.getId() : null;
+            Long cupomIdExistente = (existente.getCupom() != null) ? existente.getCupom().getId() : null;
+
+            boolean mesmoCupom = java.util.Objects.equals(cupomIdExistente, cupomIdAtual);
+
+            BigDecimal existenteFinal = (existente.getPrecoFinal() != null)
+                    ? existente.getPrecoFinal().setScale(2, RoundingMode.HALF_UP)
+                    : null;
+
+            boolean mesmoValor = (existenteFinal != null) && existenteFinal.compareTo(precoFinal) == 0;
+
+            if (mesmoCupom && mesmoValor) {
+                return CriarCompraPixResponse.builder()
+                        .compraId(existente.getId())
+                        .status(existente.getStatus())
+                        .qrCodeBase64(null)
+                        .qrCodeCopiaCola(existente.getPixCopiaCola())
+                        .expiracaoPix(existente.getPixExpiracao())
+                        .ticketUrl(existente.getPixTicketUrl())
+                        .build();
+            }
+
+            // opcional (recomendado): expira a pendência anterior para não acumular pendências “inúteis”
+            // existente.setStatus(StatusCompra.EXPIRADA);
+            // existente.setMotivoCancelamento("Novo PIX gerado com cupom/valor diferente");
+            // pacoteCompradoRepository.save(existente);
         }
 
-        // ✅ 2) Cria uma nova "compra" local com status CRIADA
+        // 4) cria compra local com snapshot de valores + cupom (FK)
         PacoteComprado compra = PacoteComprado.builder()
                 .usuario(usuario)
                 .pacote(pacote)
@@ -187,9 +239,12 @@ public class PacoteCompradoService {
                 .gateway("MERCADO_PAGO")
                 .ativo(false)
                 .refundStatus(StatusReembolso.NAO_SOLICITADO)
+                .cupom(cupom)                    // ✅ FK
+                .precoOriginal(precoOriginal)    // ✅ snapshot
+                .precoFinal(precoFinal)          // ✅ snapshot
+                .valorDesconto(valorDesconto)    // ✅ snapshot
                 .build();
 
-        // ✅ Garante ID antes de chamar o MP (pra external_reference / idempotency)
         compra = pacoteCompradoRepository.saveAndFlush(compra);
 
         String descricaoPagamento = String.format(
@@ -199,20 +254,18 @@ public class PacoteCompradoService {
         );
 
         try {
-            // ✅ 3) Chamada externa (MP)
+            // 5) cria PIX no gateway com o VALOR FINAL (com desconto)
             PixCobrancaResponse pix = pixGateway.criarCobranca(
                     compra.getId(),
-                    pacote.getPreco(),
+                    precoFinal, // ✅ valor final
                     descricaoPagamento,
                     usuario.getEmail()
             );
 
-            // ✅ 4) Só agora marca como PENDENTE e salva os dados essenciais
+            // 6) marca pendente e salva retorno PIX
             compra.setStatus(StatusCompra.PENDENTE);
             compra.setPixTxId(pix.getTxId());
             compra.setPixExpiracao(pix.getExpiracao());
-
-            // ✅ salva pra recuperação futura
             compra.setPixCopiaCola(pix.getCopiaCola());
             compra.setPixTicketUrl(pix.getTicketUrl());
 
@@ -221,21 +274,21 @@ public class PacoteCompradoService {
             return CriarCompraPixResponse.builder()
                     .compraId(compra.getId())
                     .status(compra.getStatus())
-                    .qrCodeBase64(null) // opcional
+                    .qrCodeBase64(null)
                     .qrCodeCopiaCola(pix.getCopiaCola())
                     .expiracaoPix(pix.getExpiracao())
                     .ticketUrl(pix.getTicketUrl())
                     .build();
 
         } catch (Exception e) {
-            // ✅ Se o MP falhar, não deixa uma "compra CRIADA" eternamente
-            compra.setStatus(StatusCompra.EXPIRADA); // ou CANCELADA, você escolhe
+            compra.setStatus(StatusCompra.EXPIRADA);
             compra.setRefundErro("Falha ao criar PIX no Mercado Pago: " + e.getMessage());
             pacoteCompradoRepository.save(compra);
-
-            throw e; // ou throw new BusinessException("Falha ao criar PIX...");
+            throw e;
         }
     }
+
+
 
 
 
