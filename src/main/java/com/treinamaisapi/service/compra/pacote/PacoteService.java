@@ -190,7 +190,7 @@ public List<CatalogoPacoteDTO> listarCatalogo(Long usuarioId) {
     }
 
 
-    // compra direta
+
 
 
 }

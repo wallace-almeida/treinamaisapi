@@ -41,10 +41,7 @@ public class UserService {
         this.rateLimitService = rateLimitService;
     }
 
-    public Usuario findByEmail(String email) {
-        Optional<Usuario> usuario = usuarioRepository.findByEmail(email);
-        return usuario.orElse(null);
-    }
+
 
     public void criarUsuario(UsuarioRequest request) {
         if (usuarioRepository.existsByEmail(request.getEmail())) {

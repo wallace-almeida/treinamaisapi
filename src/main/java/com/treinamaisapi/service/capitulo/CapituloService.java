@@ -31,11 +31,6 @@ public class CapituloService {
         return new CapituloResponse(capitulo.getId(), capitulo.getNome(), tema.getNome());
     }
 
-    public List<TemaResponse> listar() {
-        return temaRepository.findAll().stream().map(
-                t -> new TemaResponse(t.getId(), t.getNome())
-        ).toList();
-    }
 
     public List<CapituloResponse> listarPorTema(Long temaId) {
         return capituloRepository.findAll().stream()

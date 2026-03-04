@@ -21,3 +21,6 @@ public class CriarCupomRequest {
 
     private BigDecimal valorMinimoCompra;
 }
+
+
+
