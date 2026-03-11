@@ -6,6 +6,7 @@ import com.treinamaisapi.common.dto.auth.LoginRequest;
 import com.treinamaisapi.common.dto.auth.RefreshTokenRequest;
 import com.treinamaisapi.common.dto.usuario.UsuarioResponse;
 import com.treinamaisapi.common.dto.versaoApp.AppVersionDTO;
+import com.treinamaisapi.common.dto.versaoApp.CreateAppVersionDTO;
 import com.treinamaisapi.common.exception.InvalidCredentialsException;
 import com.treinamaisapi.controller.autenticacao.RefreshTokenService;
 import com.treinamaisapi.entity.appVersion.AppVersion;
@@ -42,6 +43,20 @@ public class AppVersionService {
         dto.setForceUpdate(version.getForceUpdate());
 
         return dto;
+    }
+
+    public void createVersion(CreateAppVersionDTO dto) {
+
+        AppVersion version = new AppVersion();
+
+        version.setVersionName(dto.getVersionName());
+        version.setVersionCode(dto.getVersionCode());
+        version.setApkUrl(dto.getApkUrl());
+        version.setDescription(dto.getDescription());
+        version.setForceUpdate(dto.getForceUpdate());
+
+        repository.save(version);
+
     }
 
 }

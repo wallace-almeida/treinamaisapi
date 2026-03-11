@@ -32,6 +32,6 @@ public class AppVersion {
     private Boolean forceUpdate;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
 }

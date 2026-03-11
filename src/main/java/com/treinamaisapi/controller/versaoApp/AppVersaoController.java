@@ -1,13 +1,12 @@
 package com.treinamaisapi.controller.versaoApp;
 
 import com.treinamaisapi.common.dto.versaoApp.AppVersionDTO;
+import com.treinamaisapi.common.dto.versaoApp.CreateAppVersionDTO;
 import com.treinamaisapi.controller.swagger.AppVersaoControllerSwagger;
 import com.treinamaisapi.service.AppVersion.AppVersionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -20,6 +19,12 @@ public class AppVersaoController implements AppVersaoControllerSwagger {
     @GetMapping("/version")
     public AppVersionDTO getVersion() {
         return service.getLatestVersion();
+    }
+
+    @PostMapping("/create/version")
+    @Override
+    public void createVersion(@RequestBody CreateAppVersionDTO dto) {
+        service.createVersion(dto);
     }
 
 }
