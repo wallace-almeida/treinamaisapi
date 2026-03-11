@@ -1,10 +1,14 @@
 package com.treinamaisapi.common.dto.versaoApp;
 
+import lombok.Data;
+
+@Data
 public class AppVersionDTO {
 
     private String version;
     private String apkUrl;
     private boolean forceUpdate;
+    private String description;
 
     public String getVersion() {
         return version;
