@@ -161,7 +161,11 @@ public List<CatalogoPacoteDTO> listarCatalogo(Long usuarioId) {
 
     if (usuarioId != null) {
         idsComprados = new java.util.HashSet<>(
-                pacoteCompradoRepository.findPacoteIdsAtivosByUsuarioAndStatus(usuarioId, StatusCompra.APROVADA)
+                pacoteCompradoRepository.findPacoteIdsComAcessoAtivo(
+                        usuarioId,
+                        StatusCompra.APROVADA,
+                        LocalDateTime.now()
+                )
         );
     }
 

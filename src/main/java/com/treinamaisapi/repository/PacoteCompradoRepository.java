@@ -7,10 +7,13 @@ import com.treinamaisapi.entity.pacotes.Pacote;
 import com.treinamaisapi.entity.pacotes.PacoteComprado;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,7 +24,11 @@ public interface PacoteCompradoRepository extends JpaRepository<PacoteComprado, 
     Optional<PacoteComprado> findByUsuarioIdAndPacoteId(Long usuarioId, Long pacoteId);
 
 
-    List<PacoteComprado> findByUsuarioIdAndAtivoTrue(Long usuarioId);
+    List<PacoteComprado> findByUsuarioIdAndStatusAndDataExpiracaoAfter(
+            Long usuarioId,
+            StatusCompra status,
+            LocalDateTime agora
+    );
 
 
     Optional<PacoteComprado> findByIdAndUsuarioId(Long id, Long usuarioId);
@@ -60,4 +67,26 @@ where pc.usuario.id = :usuarioId
 
 
     Optional<PacoteComprado> findByPixTxId(String pixTxId);
+
+    @Query("""
+    SELECT pc.pacote.id
+    FROM PacoteComprado pc
+    WHERE pc.usuario.id = :usuarioId
+      AND pc.status = :status
+      AND pc.dataExpiracao > :agora
+""")
+    List<Long> findPacoteIdsComAcessoAtivo(
+            @Param("usuarioId") Long usuarioId,
+            @Param("status") StatusCompra status,
+            @Param("agora") LocalDateTime agora
+    );
+
+    @Modifying
+    @Query("""
+    UPDATE PacoteComprado pc
+       SET pc.ativo = false
+     WHERE pc.ativo = true
+       AND pc.dataExpiracao <= :agora
+""")
+    int expirarPacotes(@Param("agora") LocalDateTime agora);
 }

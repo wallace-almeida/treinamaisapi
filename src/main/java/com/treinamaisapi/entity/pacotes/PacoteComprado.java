@@ -104,11 +104,11 @@ public class PacoteComprado {
     // ===== REGRAS =====
     public boolean isExpirado() {
         return dataExpiracao != null &&
-                dataExpiracao.isBefore(LocalDateTime.now());
+                !dataExpiracao.isAfter(LocalDateTime.now());
     }
 
     public boolean possuiAcessoAtivo() {
-        return status == StatusCompra.APROVADA && !isExpirado() && ativo;
+        return status == StatusCompra.APROVADA && !isExpirado();
     }
 
     public boolean podeCancelar() {
@@ -119,6 +119,12 @@ public class PacoteComprado {
             return false;
         }
         return dataCompra.plusDays(7).isAfter(LocalDateTime.now());
+    }
+
+    public boolean isAtivo() {
+        return status == StatusCompra.APROVADA &&
+                dataExpiracao != null &&
+                dataExpiracao.isAfter(LocalDateTime.now());
     }
 
     @PrePersist

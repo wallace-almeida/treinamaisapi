@@ -67,7 +67,7 @@ public class PacoteCompradoService {
             PacoteComprado compra = compraExistenteOpt.get();
 
             // 🔒 Já está ativa
-            if (compra.getStatus() == StatusCompra.APROVADA && !compra.isExpirado()) {
+            if (compra.isAtivo()) {
                 throw new RuntimeException("Usuário já possui acesso ativo a este pacote");
             }
 
@@ -102,7 +102,13 @@ public class PacoteCompradoService {
     @Transactional(readOnly = true)
     public List<PacoteCompradoComUsuarioDTO> listarComprasAtivas(Long usuarioId) {
         // Busca todos os pacotes ativos do usuário
-        List<PacoteComprado> pacotesAtivos = pacoteCompradoRepository.findByUsuarioIdAndAtivoTrue(usuarioId);
+        List<PacoteComprado> pacotesAtivos =
+                pacoteCompradoRepository
+                        .findByUsuarioIdAndStatusAndDataExpiracaoAfter(
+                                usuarioId,
+                                StatusCompra.APROVADA,
+                                LocalDateTime.now()
+                        );
 
         LocalDate hoje = LocalDate.now();
 
