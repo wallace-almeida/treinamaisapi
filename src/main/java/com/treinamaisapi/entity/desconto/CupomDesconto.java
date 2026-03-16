@@ -48,5 +48,8 @@ public class CupomDesconto {
     @Column(precision = 10, scale = 2)
     private BigDecimal valorMinimoCompra;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer usosRealizados = 0;
 
 }

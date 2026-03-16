@@ -321,6 +321,12 @@ public class PacoteCompradoService {
                         compra.getPacote().getDuracaoDias()
                 )
         );
+        // ✅ AQUI entra o consumo do cupom
+        if (compra.getCupom() != null) {
+            CupomDesconto cupom = compra.getCupom();
+            cupom.setUsosRealizados(cupom.getUsosRealizados() + 1);
+            cupomDescontoRepository.save(cupom);
+        }
 
         pacoteCompradoRepository.save(compra);
     }

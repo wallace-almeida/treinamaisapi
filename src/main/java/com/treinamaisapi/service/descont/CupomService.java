@@ -74,6 +74,11 @@ public class CupomService {
 
         LocalDateTime agora = LocalDateTime.now();
 
+        if (cupom.getLimiteUsosTotal() != null &&
+                cupom.getUsosRealizados() >= cupom.getLimiteUsosTotal()) {
+            throw new BusinessException("Cupom já atingiu o limite de utilizações.");
+        }
+
         if (cupom.getInicioVigencia() != null && agora.isBefore(cupom.getInicioVigencia())) {
             throw new BusinessException("Cupom ainda não está vigente.");
         }
