@@ -1,5 +1,6 @@
 package com.treinamaisapi.service.compra.pacote;
 
+import com.treinamaisapi.common.dto.admin.compra.CompraAdminDTO;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixGateway;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.pix.response.PixCobrancaResponse;
@@ -430,6 +431,42 @@ public class PacoteCompradoService {
 
 
 
+    @Transactional(readOnly = true)
+    public List<CompraAdminDTO> listarComprasAdmin() {
 
+        List<PacoteComprado> compras = pacoteCompradoRepository.findAll();
+
+        return compras.stream()
+                .map(compra -> CompraAdminDTO.builder()
+                        .compraId(compra.getId())
+
+                        .usuarioId(compra.getUsuario().getId())
+                        .nomeUsuario(compra.getUsuario().getNome())
+                        .emailUsuario(compra.getUsuario().getEmail())
+
+                        .pacoteId(compra.getPacote().getId())
+                        .nomePacote(compra.getPacote().getNome())
+
+                        .precoOriginal(compra.getPrecoOriginal())
+                        .precoFinal(compra.getPrecoFinal())
+                        .valorDesconto(compra.getValorDesconto())
+
+                        .cupom(compra.getCupom() != null
+                                ? compra.getCupom().getCodigo()
+                                : null)
+
+                        .status(compra.getStatus().name())
+                        .meioPagamento(compra.getMeioPagamento() != null
+                                ? compra.getMeioPagamento().name()
+                                : null)
+
+                        .dataCompra(compra.getDataCompra())
+                        .dataExpiracao(compra.getDataExpiracao())
+
+                        .ativo(compra.isAtivo())
+
+                        .build())
+                .toList();
+    }
 
 }

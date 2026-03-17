@@ -3,6 +3,7 @@ package com.treinamaisapi.controller.swagger;
 
 
 
+import com.treinamaisapi.common.dto.admin.compra.CompraAdminDTO;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
 import com.treinamaisapi.common.dto.compra.response.CompraResponse;
@@ -15,6 +16,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "Compra de Pacote", description = "Compra de pacotes de Cursos do usuario")
 public interface PacoteCompradoControllerSwagger {
@@ -45,4 +48,11 @@ public interface PacoteCompradoControllerSwagger {
 
     @PostMapping("/pix")
     ResponseEntity<Void> webhookPix(@RequestBody PixWebhookRequest request);
+
+    // Controle Administrativo
+    @GetMapping("/admin")
+    List<CompraAdminDTO> listarComprasAdmin();
+
+    // Controle Administrativo
+
 }

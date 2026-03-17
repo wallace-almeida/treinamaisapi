@@ -1,5 +1,6 @@
 package com.treinamaisapi.controller.compra.pacote;
 
+import com.treinamaisapi.common.dto.admin.compra.CompraAdminDTO;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.MpPaymentStatusResponse;
 import com.treinamaisapi.common.dto.compra.pix.gatewayPix.PixWebhookRequest;
 import com.treinamaisapi.common.dto.compra.pix.response.CriarCompraPixResponse;
@@ -14,6 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -88,7 +91,12 @@ public class PacoteCompradoController implements PacoteCompradoControllerSwagger
 
 
 
-
+// Controle Administrativo
+@GetMapping("/admin")
+@Override
+public List<CompraAdminDTO> listarComprasAdmin() {
+    return pacoteCompradoService.listarComprasAdmin();
+}
 
 
 
