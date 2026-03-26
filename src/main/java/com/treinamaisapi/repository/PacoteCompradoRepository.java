@@ -81,12 +81,12 @@ where pc.usuario.id = :usuarioId
             @Param("agora") LocalDateTime agora
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
-    UPDATE PacoteComprado pc
-       SET pc.ativo = false
-     WHERE pc.ativo = true
-       AND pc.dataExpiracao <= :agora
+UPDATE PacoteComprado pc
+   SET pc.ativo = false
+ WHERE pc.ativo = true
+   AND pc.dataExpiracao <= :agora
 """)
     int expirarPacotes(@Param("agora") LocalDateTime agora);
 }
